@@ -1,136 +1,144 @@
-# Percorsi formativi — D.Lgs. 81/08 + Accordo Stato-Regioni 17/04/2025
+# Percorsi formativi — strumento di sintesi (D.Lgs. 81/08 + Accordi Stato-Regioni)
 
-Tutti i dati sono ancorati alle fonti normative presenti in `references/` e
-`references/accordi/`. Salvo dove indicato, le durate e le cadenze derivano
-dall'**ASR 17/04/2025** (Rep. Atti 59/CSR, in vigore dal 24/05/2025), il cui
-testo integrale è in `references/accordi/ASR_59_2025_nuovo_accordo_RAW.txt`
-(Parte II = corsi di formazione; Parte III = aggiornamenti).
+Strumento unico per costruire la sintesi formativa di un'azienda **sia nuova sia attiva
+da anni**. Contiene tre livelli:
+1. **Quadro a regime** (ASR 17/04/2025) — cosa serve oggi, per figura.
+2. **Quadro storico** (accordi 2011/2012/2016 + DM emergenze) — cosa valeva prima,
+   per giudicare attestati pregressi e calcolare i crediti.
+3. **Transizione e crediti** — come si salda il vecchio col nuovo.
 
-Verifica puntuale eseguita sul testo dell'accordo:
-- Parte III §1.1 lavoratori; §1.2 preposti; §1.3 dirigenti; §1.4 datore di lavoro;
-  §2 datore di lavoro-RSPP; §3 RSPP/ASPP; §5 ambienti confinati; §6 attrezzature art. 73 c.5.
-- Antincendio: `references/DM_02_09_2021_ANTINCENDIO.txt` (Allegato III).
-- Primo soccorso: `references/DM_388_2003_PRIMO_SOCCORSO.txt` (artt. 1 e 3, allegati 3-4).
+Tutte le durate sono verificate sui testi in `references/` e `references/accordi/`:
+- ASR 2025 → `accordi/ASR_59_2025_nuovo_accordo_RAW.txt` (Parte II corsi, Parte III aggiornamenti)
+- Lavoratori/Preposti/Dirigenti 2011 → `accordi/ASR_221_2011_lavoratori_RAW.txt`
+- DL-RSPP 2011 → `accordi/ASR_223_2011_DL_RSPP_RAW.txt`
+- Attrezzature 2012 → `accordi/ASR_53_2012_attrezzature_RAW.txt`
+- RSPP/ASPP 2016 → `accordi/ASR_128_2016_RSPP_ASPP_RAW.pdf` (scansione; struttura confermata dall'ASR 2025)
+- Antincendio → `DM_02_09_2021_ANTINCENDIO.txt`; Primo soccorso → `DM_388_2003_PRIMO_SOCCORSO.txt`
 
 ---
 
-## ORGANIGRAMMA SICUREZZA — quadro formativo per figura
+## GUIDA D'USO — ditta NUOVA vs ditta ATTIVA DA ANNI
 
-Tabella di sintesi. Per ogni figura: se è prevista formazione, tipo e durata,
-scadenze/aggiornamento, eventuali esoneri per credito formativo, note.
+**Ditta NUOVA (nessun attestato pregresso):** parti dal livello di rischio (vedi
+`ateco-rischio.md`) e applica direttamente il **Quadro a regime** qui sotto. Costruisci il
+piano figura per figura con le durate "oggi". Non serve il quadro storico.
 
-| Figura | Formazione prevista | Tipo e durata | Scadenze / aggiornamento | Esoneri da crediti formativi | Note |
+**Ditta ATTIVA DA ANNI (con attestati pregressi):** per ogni attestato segui 4 passi:
+1. **Data di emissione** → con `accordi-storici.md` individua quale accordo si applicava allora.
+2. **Conformità storica** → confronta l'attestato col **Quadro storico** (durata/moduli corretti per
+   l'epoca?) e con gli elementi minimi del relativo `.txt` attestazioni.
+3. **Validità oggi** → calcola la scadenza (data + cadenza di aggiornamento) e verifica se il
+   percorso è ancora valido o va aggiornato/rifatto secondo il **Quadro a regime**.
+4. **Credito** → applica le regole di **Transizione e crediti**: un corso pregresso conforme
+   spesso vale come credito verso il nuovo percorso (non si rifà, basta l'aggiornamento).
+
+> Regola d'oro per la ditta storica: **un attestato non è "valido o scaduto" in assoluto**, ma
+> "valido/scaduto rispetto alla norma di allora E adeguato/da adeguare rispetto a quella di oggi".
+
+---
+
+## 1. QUADRO A REGIME — ORGANIGRAMMA SICUREZZA (ASR 17/04/2025)
+
+| Figura | Formazione | Tipo e durata | Aggiornamento | Esoneri / crediti | Note |
 |---|---|---|---|---|---|
-| **Datore di lavoro** (con RSPP esterno/interno) | Sì — novità ASR 2025 | Corso DL **16h** (modulo giuridico-normativo + organizzativo-gestionale); **+6h modulo cantieri** se ATECO edile (All. X) | Prima attivazione **entro 24/05/2027**; aggiornamento **6h / 5 anni** | Esonerato chi ha frequentato il **corso Dirigente**; credito totale a chi ha già il corso DL 16h o un corso DL-RSPP pregresso (FAQ Commissione Salute n. 7). Decade oltre 10 anni senza aggiornamento | Obbligo universale, a prescindere dal ruolo di RSPP. Ammessi presenza / VCS / e-learning |
-| **Datore di lavoro-RSPP** (art. 34) | Sì | Corso DL **16h** (propedeutico) + **Modulo Comune 8h** = **24h** + modulo tecnico-integrativo per settore (Agricoltura 16h / Pesca 12h / Costruzioni 16h / Chimico-Petrolchimico 16h) | Aggiornamento **8h / 5 anni** dalla conclusione del modulo comune | Moduli pregressi riconosciuti come credito; integrativi solo se **stesso settore ATECO riportato sull'attestato** (FAQ n. 63). Decade oltre 10 anni | Modulo comune solo presenza / VCS (no e-learning) |
-| **Dirigente** | Sì | **12h** (ridotto da 16h), 4 moduli | Aggiornamento **6h / 5 anni** | La formazione dirigente **esonera dal corso DL**. Formazione dirigente pregressa riconosciuta | Ammessi presenza / VCS / e-learning |
-| **Preposto** | Sì | **12h** (ex 8h) | Aggiornamento **6h / 2 anni (biennale)** | Nessun esonero. Prerequisito (non esonero): formazione lavoratore generale + specifica | **Solo presenza o VCS sincrona** (e-learning escluso). Transitorio: corso/aggiornamento ante 24/05/2023 → aggiornarsi entro 24/05/2026 |
-| **Lavoratori** | Sì | Generale **4h** + Specifica per rischio: Basso **4h** (tot. 8h) / Medio **8h** (tot. 12h) / Alto **12h** (tot. 16h) | Aggiornamento **6h / 5 anni**; formazione **prima dell'avvio dell'attività** (eliminato il termine dei 60 gg) | Formazione **generale = credito permanente** (non si ripete). Specifica: integrare al cambio di mansione/settore a rischio superiore | E-learning ammesso per generale e specifica secondo le regole della Parte IV |
-| **RLS** | Sì | **32h** (di cui 12h sui rischi specifici) | Aggiornamento **annuale**: **4h** (15-50 lav.) / **8h** (>50 lav.); <15 lav. rimesso al CCNL | Nessun esonero specifico | Contenuti definiti dalla contrattazione collettiva. E-learning solo se previsto dal CCNL, altrimenti presenza/VCS. <15 lav. spesso RLST territoriale |
-| **RSPP** (designato, art. 32) | Sì | Modulo A **28h** + Modulo B comune **48h** (+ modulo SP di specializzazione settoriale) + Modulo C **24h** | Aggiornamento **40h / 5 anni** dalla conclusione del Modulo B | Esonero Moduli A e B per titoli di studio (art. 32 c. 5 D.Lgs. 81/08). Credito abilitante mantenuto entro 10 anni anche con aggiornamento tardivo | Quinquennio dal Modulo B; ore distribuibili nell'arco dei 5 anni |
-| **ASPP** (designato, art. 32) | Sì | Modulo A **28h** + Modulo B comune **48h** (+ SP). **No Modulo C** | Aggiornamento **20h / 5 anni** dal Modulo B | Come RSPP per i titoli di studio | Il Modulo C è riservato ai soli RSPP |
-| **Addetto antincendio** | Sì | Livello 1 **4h** / Livello 2 **8h** / Livello 3 **16h + esame VVF** (DM 02/09/2021, All. III) | Aggiornamento **quinquennale**: 2h (L1) / 5h (L2) / 8h (L3) | Nessun esonero per titolo | Livello in base alla valutazione del rischio incendio. FAD ammessa per la parte teorica dell'aggiornamento |
-| **Addetto primo soccorso** | Sì | Gruppo A **16h** / Gruppi B e C **12h** (DM 388/2003, All. 3-4) | Aggiornamento **triennale** (parte pratica). Il decreto fissa la cadenza ma **non le ore**: prassi consolidata 6h (gr. A) / 4h (gr. B-C) | Nessun esonero generale | Gruppo in base a codice INAIL + n. dipendenti. Formazione svolta da personale medico |
-| **Addetto uso attrezzature** (art. 73 c. 5) | Sì, se usa carrelli/PLE/gru/trattori/MMT, ecc. | Corso teorico-pratico, durata per tipo di attrezzatura | Aggiornamento **quinquennale, min 4h** (parte pratica) per rinnovare l'abilitazione | Abilitazioni pregresse valide entro i 5 anni | **Novità ASR 2025**: il datore di lavoro non può più formarli direttamente, solo soggetti formatori accreditati |
-| **Addetto ambienti confinati / sospetti di inquinamento** | Sì (DPR 177/2011 + ASR Parte II) | Formazione-addestramento specifica per l'attività in ambiente confinato | Aggiornamento **quinquennale, min 4h** (parte pratica) — ASR Parte III §5 | Nessun esonero specifico | Riguarda lavoratori, datori e autonomi che operano in tali ambienti |
+| **Datore di lavoro** (con RSPP esterno/interno) | Sì (novità 2025) | Corso DL **16h**; +6h modulo cantieri se ATECO edile | **6h / 5 anni** | Esonerato chi ha il corso Dirigente; credito totale a chi ha già corso DL 16h o DL-RSPP pregresso (FAQ n.7) | Prima attivazione entro **24/05/2027**. Presenza/VCS/e-learning |
+| **Datore di lavoro-RSPP** (art. 34) | Sì | Corso DL 16h + Modulo Comune 8h = **24h** + integrativo settore (Agri 16h/Pesca 12h/Costruz. 16h/Chimico 16h) | **8h / 5 anni** dal modulo comune | Moduli pregressi a credito; integrativi solo se stesso ATECO sull'attestato (FAQ n.63) | Modulo comune solo presenza/VCS |
+| **Dirigente** | Sì | **12h** (ex 16h) | **6h / 5 anni** | Esonera dal corso DL | Presenza/VCS/e-learning |
+| **Preposto** | Sì | **12h** (ex 8h) | **6h / 2 anni** | Prerequisito: formazione lavoratore | Solo presenza/VCS. Transitorio: ante 24/05/2023 → entro 24/05/2026 |
+| **Lavoratori** | Sì | Generale 4h + Specifica 4/8/12h (Basso/Medio/Alto) | **6h / 5 anni** | Generale = credito permanente | Prima dell'avvio attività |
+| **RLS** | Sì | **32h** (12h rischi specifici) | **annuale** 4h (15-50) / 8h (>50) | — | <15 lav. rimesso al CCNL |
+| **RSPP** | Sì | Mod. A 28h + Mod. B 48h (+SP) + Mod. C 24h | **40h / 5 anni** dal Mod. B | Esonero Mod. A/B per titoli (art. 32 c.5) | Struttura confermata dal 2016 |
+| **ASPP** | Sì | Mod. A 28h + Mod. B 48h (+SP) | **20h / 5 anni** dal Mod. B | Come RSPP per i titoli | No Modulo C |
+| **Addetto antincendio** | Sì | Liv.1 4h / Liv.2 8h / Liv.3 16h+esame VVF | **5 anni**: 2h/5h/8h | — | DM 02/09/2021 |
+| **Addetto primo soccorso** | Sì | Gr. A 16h / Gr. B-C 12h | **3 anni** (prassi 6h A / 4h B-C) | — | DM 388/2003. Decreto fissa cadenza, non ore |
+| **Addetto attrezzature** (art. 73 c.5) | Sì | Corso teorico-pratico per tipo (vedi §4) | **5 anni, min 4h** pratica | Abilitazioni pregresse valide entro 5 anni | DL non può più formarli direttamente |
+| **Ambienti confinati** (DPR 177/2011) | Sì | Formazione-addestramento specifica | **5 anni, min 4h** pratica | — | Lavoratori/datori/autonomi |
 
-> **Fuori tabella (non figure normate dall'ASR come organigramma aziendale):**
-> - **CSE/CSP** (coordinatori cantieri, Titolo IV): formazione 120h (All. XIV) + aggiornamento 40h/5 anni. Esclusi dalla tabella su indicazione: figure di cantiere, non dell'organigramma aziendale.
-> - **HACCP / alimentaristi**: non disciplinato dall'ASR ma dal Reg. CE 852/2004 e dalla **normativa regionale** (durate e cadenze variabili per regione). Vedi `references/REG_CE_852_2004_HACCP.txt`.
-
----
-
-## Dettaglio per figura
-
-### 1. Datore di lavoro (art. 37 c. 7; ASR Parte II §3)
-Corso base **16h** in due moduli. Per i settori edili (All. X) **+6h** modulo cantieri.
-Aggiornamento **6h ogni 5 anni** (Parte III §1.4). Termine di prima attivazione per
-i DL già in carica: **24/05/2027** (24 mesi dall'entrata in vigore). Da non confondere
-con il 24/05/2026 = fine del periodo transitorio dei corsi in vecchio formato.
-
-### 2. Datore di lavoro-RSPP (art. 34; ASR Parte II §4)
-Percorso = corso DL 16h propedeutico **+ Modulo Comune 8h** (= 24h), più, per i settori
-indicati, un **modulo tecnico-integrativo**: Agricoltura-Silvicoltura-Zootecnia (ATECO A 01-02) 16h;
-Pesca (A 03) 12h; Costruzioni (F) 16h; Chimico-Petrolchimico (C 19-20) 16h.
-Aggiornamento **8h ogni 5 anni** dalla conclusione del modulo comune (Parte III §2).
-
-### 3. Dirigente (ASR Parte II; Parte III §1.3)
-**12h**; aggiornamento **6h/5 anni**. La frequenza del corso dirigente esonera dal corso DL.
-
-### 4. Preposto (art. 19; ASR Parte II §2.2; Parte III §1.2)
-**12h** (solo presenza o VCS sincrona); aggiornamento **6h biennale**. Prerequisito: formazione
-di lavoratore. Regola transitoria per chi ha l'ultimo corso/aggiornamento ante 24/05/2023:
-aggiornamento entro 24/05/2026.
-
-### 5. Lavoratori (art. 37; ASR Parte II; Parte III §1.1)
-Generale **4h** (credito permanente) + Specifica **4/8/12h** secondo rischio Basso/Medio/Alto.
-Aggiornamento **6h/5 anni**. Formazione **prima dell'avvio** dell'attività.
-
-### 6. RLS (art. 37 c. 10-11)
-**32h** iniziali; aggiornamento **annuale** 4h (15-50 lav.) / 8h (>50). Per <15 lav. la cadenza
-è rimessa al CCNL.
-
-### 7-8. RSPP / ASPP (art. 32; struttura confermata dall'ASR 2025, già All. 2016)
-Modulo A **28h** (comune e propedeutico) + Modulo B comune **48h** + eventuale modulo SP
-specialistico + (solo RSPP) Modulo C **24h**. Aggiornamento RSPP **40h/5 anni**, ASPP **20h/5 anni**,
-dal Modulo B. Esoneri Moduli A/B per titoli di studio (art. 32 c. 5).
-Moduli SP di specializzazione (Modulo B): SP1 Agricoltura 12h, SP2 Pesca 12h,
-SP3 Costruzioni 16h, SP4 Sanità-Servizi sociali 12h, SP5 Chimico-Petrolchimico (verificare durata
-sul testo dell'accordo prima dell'uso in un caso specifico).
-
-### 9. Addetto antincendio (DM 02/09/2021)
-Livelli 1/2/3 = 4/8/16h; il Livello 3 con esame di idoneità tecnica presso i VVF
-(attività dell'Allegato IV). Aggiornamento quinquennale 2/5/8h.
-
-### 10. Addetto primo soccorso (DM 388/2003)
-Gruppo A 16h, Gruppi B e C 12h; formazione svolta da personale medico. Aggiornamento
-**triennale** della parte pratica: il decreto (art. 3 c. 5) impone la cadenza ma non le ore;
-nella prassi 6h (gr. A) / 4h (gr. B-C).
-
-### 11. Addetto uso attrezzature (art. 73 c. 5; ASR Parte II §6)
-Corso teorico-pratico per tipo di attrezzatura (carrelli, PLE, gru a torre/mobili/su autocarro,
-trattori, macchine movimento terra, pompe per cls, ecc.). Aggiornamento quinquennale min 4h
-(parte pratica). Il DL non può più erogare direttamente questi corsi (solo formatori accreditati).
-
-### 12. Ambienti confinati / sospetti di inquinamento (DPR 177/2011; ASR Parte III §5)
-Formazione-addestramento specifica; aggiornamento quinquennale min 4h (parte pratica).
+> Fuori tabella: **CSE/CSP** (cantieri, 120h + 40h/5 anni) escluso su indicazione; **HACCP**
+> non è ASR ma Reg. CE 852/2004 + legge regionale (vedi i rispettivi `.txt`).
 
 ---
 
-## Cronoprogramma sintetico aggiornamenti
+## 2. QUADRO STORICO — durate/cadenze PRIMA dell'ASR 2025
 
-| Figura | Cadenza aggiornamento | Ore minime |
+Da usare per giudicare attestati di ditte attive da anni. Per ogni figura: cosa valeva, quale
+norma, cosa è cambiato oggi.
+
+| Figura | Regime pre-2025 (durata) | Aggiornamento pre-2025 | Norma | Cosa cambia oggi |
+|---|---|---|---|---|
+| **Datore di lavoro (solo)** | **Nessun obbligo** se non RSPP | — | — | Introdotto obbligo: 16h + 6h/5 anni |
+| **Datore di lavoro-RSPP** | **16h (basso) / 32h (medio) / 48h (alto)** | quinquennale | ASR 223/2011 | Diventa 16h base + 8h modulo comune (24h) + integrativi; agg. 8h/5 anni |
+| **Dirigente** | **16h** | 6h / 5 anni | ASR 221/2011 | Scende a 12h |
+| **Preposto** | **8h** | 6h / 5 anni | ASR 221/2011 | Sale a 12h; aggiornamento **biennale** |
+| **Lavoratori** | Generale 4h + Specifica 4/8/12h | 6h / 5 anni | ASR 221/2011 | **Invariato** (cambia: formazione prima dell'avvio, non più 60 gg) |
+| **RLS** | 32h | annuale 4h/8h | art. 37 D.Lgs. 81/08 | Invariato |
+| **RSPP / ASPP** | A 28h + B 48h + C 24h; agg. 40h/20h | quinquennale | ASR 128/2016 | Sostanzialmente invariato |
+| **Antincendio** | 4h/8h/16h (basso/medio/elevato) | **nessuna periodicità obbligatoria** | DM 10/03/1998 (fino 03/10/2022) | DM 02/09/2021: stesse 4/8/16h + agg. quinquennale 2/5/8h |
+| **Primo soccorso** | Gr. A 16h / B-C 12h | triennale (pratica) | DM 388/2003 | Invariato |
+| **Attrezzature** | PLE 8/10/12h; gru autocarro 12h; gru torre 12/14/16h; carrelli 12/16/20h | quinquennale 4h | ASR 53/2012 | Durate invariate; DL non può più formare direttamente |
+
+---
+
+## 3. TRANSIZIONE E CREDITI (vecchio → nuovo)
+
+**Date chiave ASR 2025:**
+- 24/05/2025 entrata in vigore; 24/05/2026 fine periodo transitorio (corsi vecchio formato);
+  24/05/2027 termine prima formazione obbligatoria dei datori di lavoro già in carica.
+
+**Regole di credito (per la ditta storica):**
+- **Formazione generale lavoratori (4h)** e **modulo preposto pregresso**: crediti permanenti
+  (già previsto da ASR 221/2011).
+- **Corso Dirigente** → esonera dal corso DL.
+- **Corso DL 16h o DL-RSPP pregresso conforme** → credito totale verso il corso DL; resta solo
+  l'aggiornamento (FAQ Commissione Salute n.7). Per il DL-RSPP i moduli integrativi sono a credito
+  solo se l'attestato riporta lo **stesso settore ATECO** (FAQ n.63).
+- **Preposto 8h pre-2025**: il corso resta valido; va però portato a regime con l'aggiornamento
+  **biennale** di 6h (transitorio: se l'ultimo corso/aggiornamento è ante 24/05/2023 → aggiornarsi
+  entro 24/05/2026).
+- **RSPP/ASPP**: crediti A/B/C mantenuti; il credito abilitante non decade entro 10 anni anche con
+  aggiornamento tardivo (ma la funzione non è esercitabile finché non lo si completa).
+- **Antincendio pre-04/10/2022 (DM 1998)**: l'attestato resta valido ma scatta l'obbligo di
+  aggiornamento quinquennale del DM 2021 (primo aggiornamento entro 12 mesi se erano già
+  trascorsi >5 anni all'entrata in vigore).
+- **Decadenza generale**: oltre 10 anni senza aggiornamento → credito decaduto, percorso da rifare.
+
+---
+
+## 4. Dettaglio attrezzature (art. 73 c.5) — durate corso (teoria+pratica)
+
+| Attrezzatura | Durata corso |
+|---|---|
+| PLE (piattaforme elevabili) | 8h (con stab.) / 10h (senza) / 12h (entrambe) |
+| Gru per autocarro | 12h |
+| Gru a torre | 12h / 14h / 16h (rotazione basso/alto/entrambe) |
+| Carrelli elevatori semoventi | 12h (industriali) / 16h (telescopici) / 20h (telesc. rotativi) |
+| Trattori agricoli/forestali, macchine movimento terra, ecc. | vedi `accordi/ASR_53_2012_attrezzature_RAW.txt` |
+
+Aggiornamento: **quinquennale, min 4h** (di cui ≥3h pratica) per tutte.
+
+---
+
+## 5. Cronoprogramma sintetico aggiornamenti (a regime)
+
+| Figura | Cadenza | Ore minime |
 |---|---|---|
 | Lavoratori | 5 anni | 6 |
-| Preposto | **2 anni** | 6 |
+| Preposto | 2 anni | 6 |
 | Dirigente | 5 anni | 6 |
 | Datore di lavoro | 5 anni | 6 |
 | Datore di lavoro-RSPP | 5 anni | 8 |
 | RSPP | 5 anni | 40 |
 | ASPP | 5 anni | 20 |
-| RLS | **1 anno** | 4 (15-50) / 8 (>50) |
-| Addetto antincendio | 5 anni | 2 / 5 / 8 (liv. 1/2/3) |
-| Addetto primo soccorso | **3 anni** | 6 (A) / 4 (B-C) — prassi |
-| Addetto attrezzature | 5 anni | 4 (pratica) |
+| RLS | 1 anno | 4 (15-50) / 8 (>50) |
+| Antincendio | 5 anni | 2/5/8 (liv. 1/2/3) |
+| Primo soccorso | 3 anni | 6 (A) / 4 (B-C) — prassi |
+| Attrezzature | 5 anni | 4 (pratica) |
 | Ambienti confinati | 5 anni | 4 (pratica) |
 
 ---
 
-## Crediti formativi ed esoneri (sintesi operativa)
-
-- **Formazione generale lavoratori (4h)**: credito permanente, non si ripete al cambio
-  azienda/mansione (Parte II ASR).
-- **Corso Dirigente → esonera dal corso Datore di lavoro** (aggiornamento poi quinquennale).
-- **Corso DL 16h o DL-RSPP già svolto**: credito totale verso il corso DL; aggiornamento dalla
-  data dell'attestato (FAQ Commissione Salute n. 7).
-- **DL-RSPP, moduli integrativi settoriali**: credito solo se l'attestato riporta lo **stesso
-  settore ATECO** in cui opera il DL (FAQ n. 63, 31/07/2025).
-- **RSPP/ASPP**: esonero Moduli A e B per i titoli di studio dell'art. 32 c. 5; il credito
-  abilitante non decade entro 10 anni anche se l'aggiornamento è tardivo (in tal caso la funzione
-  non è esercitabile finché non si completa l'aggiornamento).
-- **Decadenza generale**: oltre 10 anni di assenza di aggiornamento → credito decaduto, percorso
-  da rifare.
-
-> Per i requisiti dei docenti/formatori vedi `references/DI_06_03_2013_REQUISITI_FORMATORI.txt`.
-> Per la stratificazione storica delle norme (quale accordo si applica a un attestato emesso in
-> data X) vedi `references/accordi-storici.md`.
+## 6. Riferimenti per l'analisi degli attestati
+- Quale norma si applica a un attestato emesso in data X → `accordi-storici.md`
+- Elementi minimi attestato: fino al regime precedente → `ASR_221_2011_punto7_ATTESTATI.txt`;
+  dal 24/05/2025 → `ASR_59_2025_punto6_ATTESTAZIONI.txt`
+- Requisiti del docente/formatore → `DI_06_03_2013_REQUISITI_FORMATORI.txt`
