@@ -1,0 +1,15 @@
+ASR 21/12/2011 (Rep. Atti 221/CSR) — punto 7 "ATTESTATI"  [SINTESI OPERATIVA]
+Regime applicabile agli attestati emessi fino al 23/05/2026 (periodo transitorio).
+Testo integrale: references/accordi/ASR_221_2011_lavoratori_RAW.txt
+
+Elementi minimi richiesti all'attestato sotto il regime 2011:
+  - denominazione del soggetto formatore (ente o datore di lavoro abilitato);
+  - dati anagrafici del lavoratore;
+  - specifica del corso (tipologia, monte ore, settore/livello di rischio);
+  - periodo di svolgimento;
+  - firma del soggetto formatore;
+  - riferimento normativo dell'Accordo applicato.
+Validità nazionale dell'attestato.
+
+Nota: per gli attestati emessi dal 24/05/2025 si applica invece il punto 6 dell'ASR 2025
+(file ASR_59_2025_punto6_ATTESTAZIONI.txt).

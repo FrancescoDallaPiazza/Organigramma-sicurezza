@@ -1,0 +1,18 @@
+DM 10 MARZO 1998 — Criteri generali di sicurezza antincendio e gestione emergenza
+[REGIME STORICO — ABROGATO]
+[NOTA: file RICOSTRUITO da fonte ufficiale, non caricato come originale dall'utente in questa sessione. Sostituire con il testo autentico se disponibile.]
+
+STATO: gli artt. 3 c.1 lett. f), 5, 6 e 7 abrogati dal 04/10/2022 (entrata in vigore del
+DM 02/09/2021 "Decreto GSA"); il decreto è completamente abrogato dal 29/10/2022
+(DM 03/09/2021 "Minicodice").
+
+USO NELLA SKILL: serve solo per valutare attestati antincendio emessi PRIMA del 04/10/2022.
+Classificazione storica del rischio incendio e relativi corsi addetti:
+  - rischio BASSO: 4 ore
+  - rischio MEDIO: 8 ore
+  - rischio ELEVATO: 16 ore (con esame di idoneita' tecnica presso i VVF ove previsto)
+Sotto il DM 10/03/1998 NON era prevista una periodicita' obbligatoria di aggiornamento
+quinquennale (introdotta solo dal DM 02/09/2021).
+
+Per gli attestati emessi dal 04/10/2022 si applica DM_02_09_2021_ANTINCENDIO.txt
+(livelli 1/2/3 = 4/8/16h; aggiornamento quinquennale 2/5/8h).
