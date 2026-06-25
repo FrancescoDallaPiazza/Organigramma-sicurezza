@@ -65,6 +65,9 @@
   .toggle{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;user-select:none}
   @media print{.top,.tabs,.btn,.ico-btn,.addbar{display:none!important}}
 .rpill{border:none;border-radius:999px;padding:4px 10px;font-weight:700;font-size:12px;cursor:pointer;color:#fff}.rp-b{background:#2e7d32}.rp-m{background:#b8860b}.rp-a{background:#c62828}.rp-none{background:#9aa0a6}.rwarn{color:var(--rossoT);font-size:12px;font-weight:600}
+input[type=file]{font:inherit;font-size:12px;color:#333}
+input[type=file]::file-selector-button{font:inherit;font-size:12px;padding:4px 10px;margin-right:8px;border:1px solid var(--bordi);border-radius:6px;background:#fff;cursor:pointer}
+input[type=file]::file-selector-button:hover{background:var(--alt)}
 </style>
 </head>
 <body>
@@ -205,11 +208,13 @@ function prereqOk(persona,propTipo){
 }
 function statoForm(inc){
   const T=TIPI[inc.tipo];const mesi=mesiInc(inc);
-  const eso=inc.esonero&&inc.esonero.flag;
-  if(!eso&&!inc.dataIniziale)return{key:"mancante",scad:null,gg:null};
+  let inizPresent,esoNoDate;
+  if(inc.tipo==="datoreRspp"){inizPresent=rsppInizialeAssolta(inc);esoNoDate=inizPresent&&!inc.dataIniziale;}
+  else{const eso=inc.esonero&&inc.esonero.flag;inizPresent=eso||!!inc.dataIniziale;esoNoDate=eso;}
+  if(!inizPresent)return{key:"mancante",scad:null,gg:null};
   if(mesi==null)return{key:"permanente",scad:null,gg:null};
-  const base=parseISO(inc.dataAggiornamento)||(eso?null:parseISO(inc.dataIniziale));
-  if(eso&&!base)return{key:"verifica",scad:null,gg:null};
+  const base=parseISO(inc.dataAggiornamento)||(esoNoDate?null:parseISO(inc.dataIniziale));
+  if(esoNoDate&&!base)return{key:"verifica",scad:null,gg:null};
   if(!base)return{key:"mancante",scad:null,gg:null};
   const scad=addMonths(base,mesi),gg=daysB(scad,today());
   if(gg<0)return{key:"scaduto",scad,gg};
@@ -265,24 +270,47 @@ function bindTabs(){document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
 function renderView(){const v=$("view");if(!v)return;({cruscotto:renderCruscotto,organigramma:renderOrg,anagrafica:renderAnag,fascicolo:renderFascicolo,catalogo:renderCatalogo,dati:renderDati}[ST.tab])(v)}
 
 /* -------- Scadenzario -------- */
-function syncRsppIniziale(inc){var m=inc.moduli||{};var cd=(m.comune&&m.comune.data)||"";var need=inc.variante&&inc.variante!=="comune";var id=(m.integr&&m.integr.data)||"";if(cd&&(!need||id)){inc.dataIniziale=need?(cd>id?cd:id):cd;}else{inc.dataIniziale="";}}
+function rsppModEso(inc,key){
+  var M=MAP.datoreRspp;if(!M)return [];
+  var id=key==="comune"?M.ini:(M.integr&&M.integr[inc.variante]);
+  var c=id&&catById(id);
+  if(c&&c.esonero)return c.esonero.split("\n").map(function(s){return s.replace(/^[\-•·\s]+/,"").trim()}).filter(Boolean);
+  return [];
+}
+function ensureRsppModuli(inc){
+  if(!inc.moduli)inc.moduli={comune:{data:inc.dataIniziale||"",file:(inc.attestato&&inc.attestato.file)||null,nota:""},integr:{data:"",file:null,nota:""}};
+  ["comune","integr"].forEach(function(k){inc.moduli[k]=inc.moduli[k]||{data:"",file:null,nota:""};inc.moduli[k].esonero=inc.moduli[k].esonero||{flag:false,nota:""};});
+  
+}
+function rsppInizialeAssolta(inc){
+  var m=inc.moduli||{};var need=inc.variante&&inc.variante!=="comune";var mc=m.comune||{},mi=m.integr||{};
+  var comOk=(mc.esonero&&mc.esonero.flag)||!!mc.data;
+  var intOk=!need||((mi.esonero&&mi.esonero.flag)||!!mi.data);
+  return comOk&&intOk;
+}
+function syncRsppIniziale(inc){
+  var m=inc.moduli||{};var need=inc.variante&&inc.variante!=="comune";var mc=m.comune||{},mi=m.integr||{};
+  if(rsppInizialeAssolta(inc)){var ds=[];if(mc.data)ds.push(mc.data);if(need&&mi.data)ds.push(mi.data);inc.dataIniziale=ds.length?ds.sort()[ds.length-1]:"";}
+  else inc.dataIniziale="";
+}
 function moduliRsppHTML(inc){
-  inc.moduli=inc.moduli||{comune:{data:"",file:null,nota:""},integr:{data:"",file:null,nota:""}};
+  ensureRsppModuli(inc);
   var need=inc.variante&&inc.variante!=="comune";
   var labs={mod1:"Mod 1 · A 01-02 (16h)",mod2:"Mod 2 · A 03 (12h)",mod3:"Mod 3 · F Costruzioni (16h)",mod4:"Mod 4 · C 19-20 (16h)"};
-  var row=function(key,titolo){var md=inc.moduli[key]||{data:"",file:null,nota:""};inc.moduli[key]=md;
-    var dn=md.data?'<span class="badge b-ok">'+fmtISO(md.data)+'</span>':'<span class="badge b-mancante">data mancante</span>';
+  var row=function(key,titolo){
+    var md=inc.moduli[key];
+    var stat=md.data?'<span class="badge b-ok">'+fmtISO(md.data)+'</span>':'<span class="badge b-mancante">data mancante</span>';
     var fz=md.file?`<span class="badge b-ok">✔ attestato</span> <a href="${md.file.dataUrl}" download="${esc(md.file.name)}" style="font-size:11.5px">${esc(md.file.name)}</a> <button class="ico-btn ico-red" data-act="rmMod" data-mod="${key}" title="Rimuovi">🗑</button>`:`<span class="badge b-mancante">attestato da allegare</span> <input type="file" data-fld="modFile" data-mod="${key}" accept="application/pdf,image/*" style="font-size:11px;margin-left:4px">`;
-    return `<div style="border:1px solid var(--bordi);border-radius:7px;padding:7px 9px;margin-bottom:6px;background:#fafbfd"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:12.5px">${titolo}</b>${dn}</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:5px"><label class="f" style="margin:0">Data:</label><input type="text" inputmode="numeric" maxlength="10" class="d" style="max-width:140px" placeholder="gg/mm/aaaa" value="${md.data?fmtISO(md.data):""}" data-kind="hdate" data-mod="${key}" data-fld="modData"> ${fz}</div></div>`;
+    return `<div style="border:1px solid var(--bordi);border-radius:7px;padding:7px 9px;margin-bottom:6px;background:#fafbfd"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:12.5px">${titolo}</b>${stat}</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:5px"><label class="f" style="margin:0">Data:</label><input type="text" inputmode="numeric" maxlength="10" class="d" style="max-width:140px" placeholder="gg/mm/aaaa" value="${md.data?fmtISO(md.data):""}" data-kind="hdate" data-mod="${key}" data-fld="modData"> ${fz}</div></div>`;
   };
   return `<div style="grid-column:1/-1"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><label class="f">Formazione iniziale — moduli</label>${inc.dataIniziale?'<span class="badge b-ok">completa</span>':badge("mancante")}</div>${row("comune","Modulo Comune (8h)")}${need?row("integr","Modulo integrativo — "+(labs[inc.variante]||"settore")):'<div class="muted" style="font-size:11.5px">Nessun modulo integrativo per questo ATECO (solo Comune).</div>'}<div class="muted" style="font-size:11px;margin-top:2px">Iniziale completa quando ${need?"entrambi i moduli sono datati e con attestato allegato":"il Comune è datato e con attestato allegato"}.</div></div>`;
 }
 function buildScad(){
   const out=[];(ST.az.incarichi||[]).forEach(inc=>{
-    const T=TIPI[inc.tipo];if(!T)return;if(inc.tipo==="datoreRspp"&&inc.moduli)syncRsppIniziale(inc);
+    const T=TIPI[inc.tipo];if(!T)return;if(inc.tipo==="datoreRspp"){ensureRsppModuli(inc);syncRsppIniziale(inc);}
     if(T.nomina){const sn=statoNom(inc);out.push({persona:inc.persona,tipo:T.label,dett:inc.dettaglio,adq:"Nomina/Designazione",stato:sn.key,scad:null,gg:null})}
     const sf=statoForm(inc);
-    out.push({persona:inc.persona,tipo:T.label,dett:inc.dettaglio,adq:sf.key==="mancante"?"Formazione (mancante)":(mesiInc(inc)==null?"Formazione (una tantum)":"Aggiornamento"),stato:sf.key,scad:sf.scad,gg:sf.gg});if(sf.key!=="mancante"){if(inc.tipo==="datoreRspp"){const mm=inc.moduli||{};if(!(mm.comune&&mm.comune.file))out.push({persona:inc.persona,tipo:T.label,dett:inc.dettaglio,adq:"Attestato Comune (da allegare)",stato:"todo",scad:null,gg:null,att:true});const need=inc.variante&&inc.variante!=="comune";if(need&&!(mm.integr&&mm.integr.file))out.push({persona:inc.persona,tipo:T.label,dett:inc.dettaglio,adq:"Attestato modulo integrativo (da allegare)",stato:"todo",scad:null,gg:null,att:true});}else if(!(inc.attestato&&inc.attestato.file)){out.push({persona:inc.persona,tipo:T.label,dett:inc.dettaglio,adq:"Attestato (da allegare)",stato:"todo",scad:null,gg:null,att:true});}}
+    out.push({persona:inc.persona,tipo:T.label,dett:inc.dettaglio,adq:sf.key==="mancante"?"Formazione (mancante)":(mesiInc(inc)==null?"Formazione (una tantum)":"Aggiornamento"),stato:sf.key,scad:sf.scad,gg:sf.gg});const esoB=inc.esonero&&inc.esonero.flag;if(esoB){if(!(inc.esonero&&inc.esonero.file))out.push({persona:inc.persona,tipo:T.label,dett:inc.dettaglio,adq:"Evidenza esonero/credito (da allegare)",stato:"todo",scad:null,gg:null,att:true});}else if(sf.key!=="mancante"){if(inc.tipo==="datoreRspp"){const mm=inc.moduli||{};const mc=mm.comune||{},mi=mm.integr||{};const need=inc.variante&&inc.variante!=="comune";if(mc.data&&!mc.file)out.push({persona:inc.persona,tipo:T.label,dett:inc.dettaglio,adq:"Attestato Comune (da allegare)",stato:"todo",scad:null,gg:null,att:true});if(need&&mi.data&&!mi.file)out.push({persona:inc.persona,tipo:T.label,dett:inc.dettaglio,adq:"Attestato modulo integrativo (da allegare)",stato:"todo",scad:null,gg:null,att:true});}else if(!(inc.attestato&&inc.attestato.file)){out.push({persona:inc.persona,tipo:T.label,dett:inc.dettaglio,adq:"Attestato (da allegare)",stato:"todo",scad:null,gg:null,att:true});}}
     const pf=prereqFlag(inc);if(pf)out.push({persona:inc.persona,tipo:T.label,dett:inc.dettaglio,adq:"Prerequisito: "+pf,stato:"mancante",scad:null,gg:null,prereq:true});
   });return out;
 }
@@ -352,11 +380,11 @@ function renderOrg(v){
     ${body||`<div class="empty">Organigramma vuoto. Aggiungi il primo incarico: scegli un ruolo (es. Datore di lavoro, Preposto, Addetto antincendio) e indica la persona.</div>`}`;
   $("addInc").onclick=()=>{const tk=$("addTipo").value;const p=$("addPers").value.trim();if(!p){alert("Indica la persona.");return}
     const T=TIPI[tk];let variante="";if(T.varianti){if(T.varAuto==="rischio"){const r=(ST.az.anagrafica.rischio||"").toLowerCase();variante=r.startsWith("b")?"basso":r.startsWith("a")?"alto":"medio"}else if(T.varAuto==="addetti"){variante=(Number(ST.az.anagrafica.nAddetti)>50)?"o50":"f50"}else if(T.varAuto==="ateco"){variante=modIntegrativoAteco(ST.az.anagrafica.ateco)||"comune"}else variante=T.varianti[0].id}
-    ST.az.incarichi.push({id:uid(),persona:p,tipo:tk,variante,dettaglio:"",dataNomina:"",dataIniziale:"",dataAggiornamento:"",esonero:{flag:false,nota:""},attestato:{file:null,nota:""},moduli:{comune:{data:"",file:null,nota:""},integr:{data:"",file:null,nota:""}}});saveAz();render();};
+    ST.az.incarichi.push({id:uid(),persona:p,tipo:tk,variante,dettaglio:"",dataNomina:"",dataIniziale:"",dataAggiornamento:"",esonero:{flag:false,nota:""},attestato:{file:null,nota:""},moduli:{comune:{data:"",file:null,nota:"",esonero:{flag:false,nota:""}},integr:{data:"",file:null,nota:"",esonero:{flag:false,nota:""}}}});saveAz();render();};
   bindInc();
 }
 function incaricoHTML(inc){
-  const T=TIPI[inc.tipo];if(!T)return "";if(inc.tipo==="datoreRspp"){inc.moduli=inc.moduli||{comune:{data:inc.dataIniziale||"",file:(inc.attestato&&inc.attestato.file)||null,nota:""},integr:{data:"",file:null,nota:""}};syncRsppIniziale(inc);}const R=resolve(inc.tipo,inc.variante);const mesi=mesiInc(inc);const sn=statoNom(inc);const sf=statoForm(inc);const pf=prereqFlag(inc);const eso=inc.esonero&&inc.esonero.flag;const att=inc.attestato||{file:null,nota:""};
+  const T=TIPI[inc.tipo];if(!T)return "";if(inc.tipo==="datoreRspp"){ensureRsppModuli(inc);syncRsppIniziale(inc);}const R=resolve(inc.tipo,inc.variante);const mesi=mesiInc(inc);const sn=statoNom(inc);const sf=statoForm(inc);const pf=prereqFlag(inc);const eso=inc.esonero&&inc.esonero.flag;const att=inc.attestato||{file:null,nota:""};
   const varSel=(T.varianti&&inc.tipo!=="datoreRspp")?`<select class="t" data-fld="variante" style="width:auto">${T.varianti.map(o=>`<option value="${o.id}" ${o.id===inc.variante?"selected":""}>${o.label}</option>`).join("")}</select>`:"";
   const modTxt=[R.mod.a?"Aula":"",R.mod.v?"VC":"",R.mod.e?"E-learning":""].filter(Boolean).join(" · ");
   return `<div class="inc" data-i="${inc.id}">
@@ -368,21 +396,21 @@ function incaricoHTML(inc){
     ${T.baseIndiv?baseIndivHTML(inc):""}
     <div class="grid">
       ${T.nomina?`<div><div style="display:flex;justify-content:space-between;margin-bottom:3px"><label class="f">Nomina/Designazione</label>${badge(sn.key)}</div>${hdate("dataNomina",inc.dataNomina)}</div>`:""}
-      ${inc.tipo==="datoreRspp"?moduliRsppHTML(inc):`<div><div style="display:flex;justify-content:space-between;margin-bottom:3px"><label class="f">Formazione iniziale</label>${(!eso&&!inc.dataIniziale)?badge("mancante"):(eso?'<span class="badge b-info">Esonero</span>':"")}</div>${hdate("dataIniziale",inc.dataIniziale,eso?"disabled style='opacity:.5'":"")}</div>`}
+      ${eso?"":(inc.tipo==="datoreRspp"?moduliRsppHTML(inc):`<div><div style="display:flex;justify-content:space-between;margin-bottom:3px"><label class="f">Formazione iniziale</label>${inc.dataIniziale?"":badge("mancante")}</div>${hdate("dataIniziale",inc.dataIniziale)}</div>`)}
       ${mesi!=null?`<div><div style="display:flex;justify-content:space-between;margin-bottom:3px"><label class="f">Ultimo aggiornamento</label>${badge(sf.key)}</div>${hdate("dataAggiornamento",inc.dataAggiornamento)}</div>`:`<div><label class="f">Stato</label>${badge(sf.key)}</div>`}
       <div style="font-size:12px;color:#555;align-self:end;line-height:1.45">
         <div><b>Iniziale:</b> ${esc(R.ini)}</div><div><b>Aggiorn.:</b> ${esc(R.agg)}${mesi?` ogni ${mesi%12===0?mesi/12+" anni":mesi+" mesi"}`:""}</div>
         <div><b>Modalità:</b> ${modTxt||"—"}</div>${sf.scad?`<div style="color:${sf.key==='scaduto'?'var(--rossoT)':sf.key==='scadenza'?'var(--gialloT)':'var(--verdeT)'}"><b>Prossima scadenza:</b> ${fmt(sf.scad)}</div>`:""}</div>
     </div>
-    ${(sf.key!=="mancante"&&inc.tipo!=="datoreRspp")?`<div style="margin-top:9px;padding:9px 11px;border:1px solid var(--bordi);border-radius:8px;background:#fafbfd">
+    ${(sf.key!=="mancante"&&inc.tipo!=="datoreRspp"&&!eso)?`<div style="margin-top:9px;padding:9px 11px;border:1px solid var(--bordi);border-radius:8px;background:#fafbfd">
       <div style="font-weight:600;font-size:12.5px;margin-bottom:5px">Attestato (evidenza del corso svolto)</div>
       ${att.file?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="badge b-ok">✔ Allegato</span> <a href="${att.file.dataUrl}" download="${esc(att.file.name)}" style="font-size:12px">${esc(att.file.name)}</a> <button class="ico-btn ico-red" data-act="rmAtt" title="Rimuovi allegato">🗑</button></div>`:`<div><span class="badge b-mancante">COSA DA FARE: allegare attestato</span> <span class="muted" style="font-size:11.5px">→ confluisce nel cruscotto</span></div><input type="file" data-fld="attestatoFile" accept="application/pdf,image/*" style="margin-top:6px;font-size:12px">`}
       <input class="t" style="margin-top:6px" placeholder="rif. attestato (n., ente, data)…" value="${esc(att.nota||"")}" data-fld="attestatoNota">
     </div>`:""}
-    <label class="toggle" style="margin-top:9px"><input type="checkbox" data-fld="esoneroFlag" ${eso?"checked":""}> Esonero / credito sulla formazione iniziale</label>
+    ${true?`<label class="toggle" style="margin-top:9px"><input type="checkbox" data-fld="esoneroFlag" ${eso?"checked":""}> Esonero / credito sulla formazione iniziale</label>
     ${eso?`<div class="esobox"><b>Possibili fonti di esonero per ${esc(T.label)}:</b>${R.eso?`<ul>${R.eso.map(e=>`<li>${esc(e)}</li>`).join("")}</ul>`:`<div class="muted" style="margin-top:4px">Nessuna fonte di esonero codificata nel catalogo per questa figura.</div>`}
-        <label class="f" style="margin-top:7px">Nota (fonte applicata):</label><textarea data-fld="esoneroNota" rows="2" placeholder="es. Corso Acc. 21/12/2011 — attestato n. …">${esc(inc.esonero.nota||"")}</textarea>
-        <div class="muted" style="margin-top:5px">Con esonero attivo: iniziale assolta, prerequisito non richiesto; resta lo scadenzario dell'aggiornamento (inserisci la data dell'ultimo aggiornamento per calcolarlo).</div></div>`:""}
+        <div style="margin-top:8px;padding:8px 10px;border:1px solid var(--bordi);border-radius:7px;background:#fff"><div style="font-weight:600;font-size:12.5px;margin-bottom:5px">Evidenza dell’esonero/credito (attestato che dà il credito)</div>${(inc.esonero&&inc.esonero.file)?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="badge b-ok">✔ Allegato</span> <a href="${inc.esonero.file.dataUrl}" download="${esc(inc.esonero.file.name)}" style="font-size:12px">${esc(inc.esonero.file.name)}</a> <button class="ico-btn ico-red" data-act="rmEso" title="Rimuovi allegato">🗑</button></div>`:`<div><span class="badge b-mancante">COSA DA FARE: allegare evidenza</span> <span class="muted" style="font-size:11.5px">→ confluisce nel cruscotto</span></div><input type="file" data-fld="esoFile" accept="application/pdf,image/*" style="margin-top:6px;font-size:12px">`}</div><label class="f" style="margin-top:7px">Nota (fonte applicata):</label><textarea data-fld="esoneroNota" rows="2" placeholder="es. Corso Acc. 21/12/2011 — attestato n. …">${esc(inc.esonero.nota||"")}</textarea>
+        <div class="muted" style="margin-top:5px">Con esonero attivo: iniziale assolta, prerequisito non richiesto; resta lo scadenzario dell'aggiornamento (inserisci la data dell'ultimo aggiornamento per calcolarlo).</div></div>`:""}`:""}
     ${T.nomina||T.nota?`<div class="iref">ℹ️ <span>${T.nomina?esc(T.nomina.rif)+". ":""}${esc(T.nota||"")}${T.rif?" — "+esc(T.rif):""}</span></div>`:""}
   </div>`;
 }
@@ -408,10 +436,10 @@ function syncDLDoc(inc){
 }
 function findInc(id){return ST.az.incarichi.find(i=>i.id===id)}
 function bindInc(){
-  document.querySelectorAll('[data-act="delInc"]').forEach(b=>b.onclick=()=>{const id=b.closest(".inc").dataset.i;if(confirm("Rimuovere questo incarico?")){ST.az.incarichi=ST.az.incarichi.filter(i=>i.id!==id);saveAz();render()}});document.querySelectorAll('[data-act="rmAtt"]').forEach(b=>b.onclick=()=>{const id=b.closest(".inc").dataset.i;const inc=findInc(id);if(inc.attestato)inc.attestato.file=null;saveAz();render()});document.querySelectorAll('[data-act="rmMod"]').forEach(b=>b.onclick=()=>{const id=b.closest(".inc").dataset.i;const inc=findInc(id);const mod=b.dataset.mod;if(inc.moduli&&inc.moduli[mod])inc.moduli[mod].file=null;saveAz();render()});
+  document.querySelectorAll('[data-act="delInc"]').forEach(b=>b.onclick=()=>{const id=b.closest(".inc").dataset.i;if(confirm("Rimuovere questo incarico?")){ST.az.incarichi=ST.az.incarichi.filter(i=>i.id!==id);saveAz();render()}});document.querySelectorAll('[data-act="rmAtt"]').forEach(b=>b.onclick=()=>{const id=b.closest(".inc").dataset.i;const inc=findInc(id);if(inc.attestato)inc.attestato.file=null;saveAz();render()});document.querySelectorAll('[data-act="rmEso"]').forEach(b=>b.onclick=()=>{const id=b.closest(".inc").dataset.i;const inc=findInc(id);if(inc.esonero)inc.esonero.file=null;saveAz();render()});document.querySelectorAll('[data-act="rmMod"]').forEach(b=>b.onclick=()=>{const id=b.closest(".inc").dataset.i;const inc=findInc(id);const mod=b.dataset.mod;if(inc.moduli&&inc.moduli[mod])inc.moduli[mod].file=null;saveAz();render()});
   document.querySelectorAll(".inc [data-fld]").forEach(el=>{
     const id=el.closest(".inc").dataset.i;const inc=findInc(id);const fld=el.dataset.fld;
-    if(fld==="modFile"){el.onchange=()=>{const mod=el.dataset.mod;const f=el.files[0];if(!f)return;if(f.size>2*1024*1024){alert("File troppo grande (>2 MB).");return}const rd=new FileReader();rd.onload=()=>{inc.moduli=inc.moduli||{};inc.moduli[mod]=inc.moduli[mod]||{data:"",file:null,nota:""};inc.moduli[mod].file={name:f.name,size:f.size,dataUrl:rd.result};saveAz();render()};rd.readAsDataURL(f)};return}if(fld==="attestatoFile"){el.onchange=()=>{const f=el.files[0];if(!f)return;if(f.size>2*1024*1024){alert("File troppo grande (>2 MB). Riducilo prima di allegarlo.");return}const rd=new FileReader();rd.onload=()=>{inc.attestato=inc.attestato||{file:null,nota:""};inc.attestato.file={name:f.name,size:f.size,dataUrl:rd.result};saveAz();render()};rd.readAsDataURL(f)};return}if(fld==="attestatoNota"){el.onchange=()=>{inc.attestato=inc.attestato||{file:null,nota:""};inc.attestato.nota=el.value;saveAz()};return}if(el.dataset.kind==="hdate"){el.onchange=()=>{const v=el.value.trim();const mod=el.dataset.mod;const iso=v===""?"":parseHuman(v);if(v!==""&&!iso){el.style.borderColor="var(--rossoT)";el.title="Data non valida — usa gg/mm/aaaa";return}if(mod){inc.moduli=inc.moduli||{};inc.moduli[mod]=inc.moduli[mod]||{data:"",file:null,nota:""};inc.moduli[mod].data=iso;syncRsppIniziale(inc);}else{inc[fld]=iso;}saveAz();render();};return}if(fld==="esoneroFlag"){el.onchange=()=>{inc.esonero.flag=el.checked;saveAz();render()};return}
+    if(fld==="modEso"){el.onchange=()=>{const mod=el.dataset.mod;inc.moduli=inc.moduli||{};inc.moduli[mod]=inc.moduli[mod]||{data:"",file:null,nota:""};inc.moduli[mod].esonero=inc.moduli[mod].esonero||{flag:false,nota:""};inc.moduli[mod].esonero.flag=el.checked;syncRsppIniziale(inc);saveAz();render()};return}if(fld==="modEsoNota"){el.onchange=()=>{const mod=el.dataset.mod;inc.moduli[mod].esonero=inc.moduli[mod].esonero||{flag:false,nota:""};inc.moduli[mod].esonero.nota=el.value;saveAz()};return}if(fld==="modFile"){el.onchange=()=>{const mod=el.dataset.mod;const f=el.files[0];if(!f)return;if(f.size>2*1024*1024){alert("File troppo grande (>2 MB).");return}const rd=new FileReader();rd.onload=()=>{inc.moduli=inc.moduli||{};inc.moduli[mod]=inc.moduli[mod]||{data:"",file:null,nota:""};inc.moduli[mod].file={name:f.name,size:f.size,dataUrl:rd.result};saveAz();render()};rd.readAsDataURL(f)};return}if(fld==="attestatoFile"){el.onchange=()=>{const f=el.files[0];if(!f)return;if(f.size>2*1024*1024){alert("File troppo grande (>2 MB). Riducilo prima di allegarlo.");return}const rd=new FileReader();rd.onload=()=>{inc.attestato=inc.attestato||{file:null,nota:""};inc.attestato.file={name:f.name,size:f.size,dataUrl:rd.result};saveAz();render()};rd.readAsDataURL(f)};return}if(fld==="attestatoNota"){el.onchange=()=>{inc.attestato=inc.attestato||{file:null,nota:""};inc.attestato.nota=el.value;saveAz()};return}if(el.dataset.kind==="hdate"){el.onchange=()=>{const v=el.value.trim();const mod=el.dataset.mod;const iso=v===""?"":parseHuman(v);if(v!==""&&!iso){el.style.borderColor="var(--rossoT)";el.title="Data non valida — usa gg/mm/aaaa";return}if(mod){inc.moduli=inc.moduli||{};inc.moduli[mod]=inc.moduli[mod]||{data:"",file:null,nota:""};inc.moduli[mod].data=iso;syncRsppIniziale(inc);}else{inc[fld]=iso;}saveAz();render();};return}if(fld==="esoFile"){el.onchange=()=>{const f=el.files[0];if(!f)return;if(f.size>2*1024*1024){alert("File troppo grande (>2 MB).");return}const rd=new FileReader();rd.onload=()=>{inc.esonero=inc.esonero||{flag:true,nota:""};inc.esonero.file={name:f.name,size:f.size,dataUrl:rd.result};saveAz();render()};rd.readAsDataURL(f)};return}if(fld==="esoneroFlag"){el.onchange=()=>{inc.esonero.flag=el.checked;saveAz();render()};return}
     if(fld==="baseIndividuazione"){el.onchange=()=>{inc.baseIndividuazione=el.value;if(el.value)syncDLDoc(inc);saveAz();render()};return}
     if(el.tagName==="SELECT"){el.onchange=()=>{inc[fld]=el.value;if(fld==="variante")inc.varManuale=true;saveAz();render()};return}
     if(fld==="esoneroNota"){el.onchange=()=>{inc.esonero.nota=el.value;saveAz()};return}
