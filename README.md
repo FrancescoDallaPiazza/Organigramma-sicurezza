@@ -1,23 +1,27 @@
-# ORGANIGRAMMA SICUREZZA
+# Organigramma Sicurezza
 
-Sorgenti delle skill di Overall Group Srl per la formazione sicurezza sul lavoro
-(D.Lgs. 81/08 + ASR 17/04/2025).
+Repository di lavoro per la gestione della formazione e dell'organigramma della
+sicurezza sul lavoro (D.Lgs. 81/08 + Accordo Stato-Regioni 17/04/2025) di
+Overall Group S.r.l.
 
 ## Contenuto
-- `checkupformazione81/` — skill CHECKUP FORMAZIONE 81 (Executive Summary degli
-  adempimenti formativi) con base normativa completa in `references/`.
 
-## Base normativa (`checkupformazione81/references/`)
-- `percorsi-formativi.md` — tabella **ORGANIGRAMMA SICUREZZA** + dettaglio per figura,
-  cronoprogramma aggiornamenti, crediti/esoneri. Ancorata alle fonti.
-- `ateco-rischio.md`, `accordi-storici.md`, `template-output.md`
-- Testi normativi: DM 02/09/2021 (antincendio), DM 388/2003 (primo soccorso),
-  estratti attestazioni ASR 2025 / ASR 2011, e (ricostruiti) DI 06/03/2013,
-  DM 10/03/1998, Reg. CE 852/2004.
-- `references/accordi/` — testi integrali: lavoratori 2011, DL-RSPP 2011,
-  attrezzature 2012, ASR 2025 (in `.txt`); RSPP/ASPP 2016 e linee applicative 2012
-  (in `.pdf`, scansioni non OCRizzate).
+### `checkupformazione81/` — skill
+Skill per generare il **CHECKUP FORMAZIONE 81** (analisi sintetica dello stato di
+adempimento agli obblighi formativi di un cliente), con i riferimenti normativi
+(accordi storici e ASR 59/2025, DM antincendio/primo soccorso, ecc.) e gli asset
+di branding.
 
-## Reinstallazione su Claude.ai
-Il file `.skill` si genera da questa cartella e si carica in
-Settings → Capabilities → Skills.
+### `organigramma-app/` — applicazione
+App web **standalone single-file** (offline, dati in `localStorage`) per costruire
+e gestire l'organigramma della sicurezza aziendale: figure e ruoli, formazione,
+scadenze e fascicolo documentale. Calcola il **livello di rischio** dal codice
+ATECO (Allegato IV ASR 2025) e permette di **aggiornare il catalogo corsi** da un
+Excel. Dettagli in `organigramma-app/LEGGIMI-app.md` e specifica completa in
+`organigramma-app/docs/progetto-organigramma-sicurezza-81.md`.
+
+Uso rapido: apri `organigramma-app/index.html` in un browser moderno
+(Chrome / Edge / Firefox).
+
+## Proprieta
+(c) Overall Group S.r.l. - strumento a uso interno. Tutti i diritti riservati.
