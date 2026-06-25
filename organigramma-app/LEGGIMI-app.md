@@ -1,16 +1,13 @@
-# App "Organigramma Sicurezza 81" — v2.8
+# App "Organigramma Sicurezza 81" — v2.9
 
-Contenuto di questa sottocartella:
 - `index.html` ............. l'applicazione (single-file, offline, localStorage)
-- `docs/progetto-organigramma-sicurezza-81.md` ... specifica e logica del progetto
-- `data/ASR26-TabellaCorsi.xlsx` .......... catalogo corsi ASR uniformato (default app)
-- `data/ASR26-TabellaCorsi-originale.xlsx` ... sorgente originale (tracciabilita)
+- `docs/progetto-organigramma-sicurezza-81.md` ... specifica e logica
+- `data/ASR26-TabellaCorsi.xlsx` (+ ...-originale.xlsx) ... catalogo corsi ASR
 
-Apri `index.html` nel browser per usare l'app. Dopo un aggiornamento del file,
-fai un ricarica forzato della pagina (i dati restano in localStorage del browser).
+Apri `index.html` nel browser (dopo un aggiornamento fai un ricarica forzato).
 
-## Novita v2.8
-- Font del bottone "Scegli file" uniformato al resto dell'app.
-- Esonero consolidato a livello di figura: un solo checkbox; se attivo sparisce il
-  box della formazione iniziale e resta solo l'esonero con la sua evidenza dedicata,
-  piu la gestione dell'aggiornamento.
+## Novita v2.9
+- Esonero/credito PER SINGOLO MODULO per il DL-RSPP: ogni modulo (Comune,
+  integrativo) ha il suo esonero; se attivo sparisce Data+attestato di quel
+  modulo e resta il suo box esonero con evidenza dedicata. Le figure a corso
+  unico mantengono l'esonero a livello di figura. (Corregge v2.8.)
