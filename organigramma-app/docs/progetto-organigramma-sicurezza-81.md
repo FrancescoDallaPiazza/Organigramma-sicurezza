@@ -54,11 +54,11 @@ Volumi reali del file: 76 righe = 1 header + 75 righe dato = **73 corsi** (60 `S
 
 ### 2.3 Persona
 
-`nominativo` + due insiemi di assegnazioni (vedi §3):
-- **ruoli/figure** (espandono nei corsi obbligatori della figura);
-- **abilitazioni per attività/rischio** (corsi legati a cosa fa, non al ruolo).
+**Anagrafica normalizzata (v2.10).** Le persone vivono in un registry per azienda `ST.az.persone[] = {id, cognome, nome, cf, nato:{data,sesso,comune,prov,stato,estero}, flagRivedere}`. Gli incarichi referenziano `personaId`; `inc.persona` resta come **label denormalizzata** (`COGNOME Nome`) mantenuta sincronizzata, così l'aggregazione/scadenzario per persona non cambia. **Chiave identità:** codice fiscale se presente, altrimenti `cognome+nome` normalizzati (de-dup di chi ricopre più ruoli).
 
-Per ogni corso obbligatorio derivato, sulla persona si registrano le **evidenze**: data corso iniziale, data ultimo aggiornamento, eventuale n° attestato, ed eventuale flag **esonero iniziale** (vedi §6).
+**Cognome e Nome obbligatori; CF facoltativo.** Inserito il CF, l'app **deriva** data e luogo di nascita (comune+prov o stato estero, via tabella Belfiore incorporata ~10.000 codici, soppressi inclusi) e sesso; gestisce **omocodia** (cifre L–V) e valida il **carattere di controllo**. Esegue un **cross-check** dei primi 6 caratteri contro cognome/nome: in caso di discordanza mostra un **avviso non bloccante** (non impedisce il salvataggio). Gestione anagrafica nella scheda **Persone**.
+
+Due insiemi di assegnazioni (vedi §3): **ruoli/figure** e **abilitazioni per attività/rischio**. Per ogni corso derivato si registrano le **evidenze**: data iniziale, data ultimo aggiornamento, eventuale n° attestato, flag **esonero iniziale** (vedi §6).
 
 ---
 
@@ -184,9 +184,20 @@ Dove il catalogo lascia una scelta, l'app la risolve dall'anagrafica (sempre for
 - caricare *tutto* il file ASR oppure, per ora, solo le figure dell'organigramma + le abilitazioni più frequenti.
 - **→ scelta: TUTTO il file ASR (76 corsi, incluse attrezzature e rischi particolari; escluse solo le righe-sezione). CHIUSA.**
 
+**3 — Anagrafica persona e codice fiscale (v2.10)**
+- **→ scelta:** registry `persone[]` con `personaId` sugli incarichi; chiave identità **CF se presente, altrimenti cognome+nome** normalizzati. CHIUSA.
+- **→ scelta:** derivazione dal CF **completa** (data + sesso + **comune/stato** via tabella Belfiore incorporata) + check del carattere di controllo + omocodia. CHIUSA.
+- **→ scelta:** **cross-check** cognome/nome vs CF = **avviso non bloccante**. CHIUSA.
+- **→ scelta:** migrazione **non distruttiva** delle vecchie stringhe `persona` → `{cognome:<stringa>, nome:""}` con flag **da rivedere** (nessuno split automatico). CHIUSA.
+
+**4 — Condivisione dati in team (v2.10)**
+- localStorage non è condivisibile. **→ scelta: Opzione A — file condiviso via File System Access API**, granularità **per azienda** (.json in cartella sincronizzata/di rete), con `schemaVersion`/`updatedAt`/`updatedBy` e **avviso di conflitto** sul salvataggio. Backend cloud (opzione C) rimandato a se servirà editing concorrente reale (con valutazione GDPR: CF + dati formativi = dati personali). CHIUSA.
+
 ---
 
 ## 10. Stato realizzativo e note tecniche
+
+- **v2.10 (costruita):** **anagrafica persona normalizzata + CF + condivisione su file.** (a) Registry `ST.az.persone[]` con `personaId` sugli incarichi; `inc.persona` mantenuta come label denormalizzata sincronizzata (`migraPersone()` migra le vecchie stringhe in modo non distruttivo, le marca *da rivedere*, e risincronizza le label; idempotente). Identità per **CF** o, in mancanza, `cognome+nome` normalizzati. (b) Inserimento incarico con **Cognome\* / Nome\* + CF facoltativo** (oppure selezione di persona esistente); scheda **Persone** per l'anagrafica. (c) **Motore CF** incorporato (puro, testato): validità + carattere di controllo, data/sesso, **comune/stato** via tabella **Belfiore** incorporata (~10.000 codici, soppressi inclusi), **omocodia** (cifre L–V), **cross-check** cognome/nome → avviso **non bloccante**. (d) **Condivisione — Opzione A**: salvataggio/apertura diretta su file `.json` (File System Access API, Chrome/Edge) **per azienda** in cartella condivisa, busta `{schemaVersion, updatedAt, updatedBy, az}`, **avviso di conflitto** se il file è stato modificato da altri dopo l'ultimo caricamento; fallback Esporta/Importa JSON (ora include `persone`). Footer → v2.10.
 
 - **v1 (fatto):** app figura-level con un solo periodo di aggiornamento per ruolo. Due forme: artifact React (`window.storage`) e file HTML standalone offline (`localStorage`). Catalogo periodi allineato a `checkupformazione81/references/percorsi-formativi.md`.
 - **v2 (costruita):** rifondazione su **catalogo corsi** (questo documento). File `organigramma-sicurezza-81-v2.html` (standalone, localStorage). Include Fascicolo documentale e le logiche di §11.
@@ -203,7 +214,7 @@ Dove il catalogo lascia una scelta, l'app la risolve dall'anagrafica (sempre for
 - **v2.9 (costruita) — correzione di v2.8:** per le figure con **più corsi iniziali** (DL-RSPP) l'esonero/credito **non** è a livello di figura ma **per singolo modulo**: il credito può coprire il Comune e non l'integrativo (o viceversa). Ripristinato quindi l'esonero **per modulo**: ogni modulo (Comune, integrativo) ha il proprio checkbox "Esonero / credito su questo modulo"; se attivo, **sparisce la riga Data+attestato di quel modulo** e compare il suo box esonero con fonti dal catalogo, Nota e **evidenza dedicata** (attestato che dà il credito). Le figure a corso unico (lavoratore, antincendio, primo soccorso, ecc.) mantengono l'esonero **a livello di figura** (anch'esso con evidenza). Cruscotto: per ogni modulo esonerato chiede "Evidenza esonero [Comune/integrativo]", per ogni modulo non esonerato e datato chiede l'attestato.
 - **v2.8 (costruita):** DL-RSPP — **esoneri/crediti gestiti per singolo modulo**, non piu in bundle. Ogni modulo (Comune, integrativo) ha la propria spunta "Esonero / credito su questo modulo", con la **propria nota** e le **fonti di esonero specifiche di quel corso** (lette dal catalogo: `MAP.datoreRspp.ini` per il Comune, `MAP.datoreRspp.integr[modX]` per il settore). Un modulo è **assolto** se datato+attestato **oppure** coperto da esonero. `rsppInizialeAssolta()` richiede che ogni modulo necessario sia assolto; `syncRsppIniziale()` pone `dataIniziale` = data del/i modulo/i effettivamente svolto/i (la piu recente), o "" se tutto a credito. `statoForm()` per datoreRspp usa l’assolvimento per-modulo: se assolta solo a credito e senza data aggiornamento → "Verifica agg."; se svolta, lo scadenzario parte dalla data reale. Nel cruscotto l’attestato è richiesto **solo per i moduli svolti** (i moduli a esonero non lo richiedono). Tolto l’esonero unico dal fondo della card per il DL-RSPP; le altre figure lo mantengono. Migrazione: vecchio esonero bundle → Modulo Comune. (d) **Attestato = allegato file**: sulla card si carica il PDF/immagine (<2 MB); finché non è allegato resta **COSA DA FARE** e confluisce nel cruscotto ("Attestati da acquisire").
 - **Branding:** palette Overall (blu `#1F3864`/`#2E5496`, semaforo `#C6E0B4`/`#FFE699`/`#F8CBAD`), font Calibri/Carlito.
-- **Persistenza:** localStorage (HTML standalone) o window.storage (artifact). Per uso multi-postazione servirà più avanti un archivio condiviso.
+- **Persistenza:** localStorage (HTML standalone) come archivio di lavoro; **condivisione multi-postazione via File System Access** su file `.json` per azienda in cartella sincronizzata/di rete (v2.10, Opzione A). Backend cloud rimandato (opzione C).
 
 ## 11. Logiche di compilazione aggiuntive
 
