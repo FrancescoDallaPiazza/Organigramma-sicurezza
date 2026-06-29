@@ -200,6 +200,116 @@ window.BELFIORE={"A001":"Abano Terme|PD","A002":"Abbadia Sopra Adda|CO","A003":"
 })(typeof global!=='undefined'?global:window);
 
 </script>
+<script id="import-core">
+/* ===== Import libretti — motore "chiave comune" (puro, no DOM) =====
+   mapCorso(tipoStr, learned?) -> {key, corsoId|null, figura, sottotipo, natura, label, conf}
+   - chiave stabile = `${figura}:${sottotipo}:${natura}` (indipendente dal testo del gestionale)
+   - natura: "iniziale" | "aggiornamento"
+   - conf: "alias" | "learned" | "euristica" | null (=> da mappare a mano)
+*/
+(function (root) {
+  function NN(s){
+    return (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+      .toUpperCase().replace(/[.\u2019'`]/g,"").replace(/[^A-Z0-9]+/g," ").trim();
+  }
+  // id catalogo per (figura,sottotipo,natura) dei corsi noti (gli altri restano corsoId=null)
+  var CAT = {
+    "lavoratore:generale:iniziale":"lavoratori-formazione-generale",
+    "lavoratore:basso:iniziale":"lavoratori-formazione-specifica-basso-rischio",
+    "lavoratore:medio:iniziale":"lavoratori-formazione-specifica-medio-rischio",
+    "lavoratore:alto:iniziale":"lavoratori-formazione-specifica-alto-rischio",
+    "lavoratore:specifica:aggiornamento":"lavoratori-formazione-specifica-aggiornamento",
+    "antincendio:l1:iniziale":"antincendio-ex-r-basso-l1-completo",
+    "antincendio:l1:aggiornamento":"antincendio-ex-r-basso-l1-aggiornamento",
+    "antincendio:l2:iniziale":"antincendio-ex-r-medio-l2-completo",
+    "antincendio:l2:aggiornamento":"antincendio-ex-r-medio-l2-aggiornamento",
+    "antincendio:l3:iniziale":"antincendio-ex-r-alto-l3-completo",
+    "antincendio:l3:aggiornamento":"antincendio-ex-r-alto-l3-aggiornamento",
+    "primoSoccorso:a:iniziale":"primo-soccorso-az-a-completo",
+    "primoSoccorso:a:aggiornamento":"primo-soccorso-az-a-aggiornamento",
+    "primoSoccorso:bc:iniziale":"primo-soccorso-az-b-c-completo",
+    "primoSoccorso:bc:aggiornamento":"primo-soccorso-az-b-c-aggiornamento",
+    "preposto:-:iniziale":"preposti",
+    "preposto:-:aggiornamento":"preposti-aggiornamento",
+    "dirigente:-:iniziale":"dirigenti",
+    "dirigente:-:aggiornamento":"dirigenti-aggiornamento",
+    "datore:-:iniziale":"datore-di-lavoro",
+    "datore:-:aggiornamento":"datore-di-lavoro-aggiornamento"
+  };
+  function build(figura,sottotipo,natura,label,conf){
+    var st=sottotipo||"-";
+    var key=figura+":"+st+":"+natura;
+    return {key:key, corsoId:CAT[key]||null, figura:figura, sottotipo:(sottotipo||""), natura:natura, label:label, conf:conf};
+  }
+
+  function mapCorso(raw, learned){
+    var n=NN(raw);
+    if(!n) return null;
+    if(learned && learned[n]){ var L=learned[n]; return {key:L.key, corsoId:L.corsoId||null, figura:L.figura, sottotipo:L.sottotipo||"", natura:L.natura, label:raw, conf:"learned"}; }
+    var agg=/\bAGGIORNAMENTO\b|\bRETRAINING\b/.test(n);
+    var nat=agg?"aggiornamento":"iniziale";
+
+    // Lavoratori
+    if(/\bLAVORATOR/.test(n)){
+      if(/\bGENERALE\b/.test(n)) return build("lavoratore","generale","iniziale",raw,"euristica");
+      if(/\bSPECIFIC/.test(n)||/\bRISCHIO\b/.test(n)){
+        if(agg) return build("lavoratore","specifica","aggiornamento",raw,"euristica");
+        var liv=/\bALTO\b/.test(n)?"alto":(/\bMEDIO\b/.test(n)?"medio":(/\bBASSO\b/.test(n)?"basso":""));
+        if(liv) return build("lavoratore",liv,"iniziale",raw,"euristica");
+      }
+      return build("lavoratore","",nat,raw,"euristica");
+    }
+    // Antincendio / prevenzione incendio
+    if(/ANTINCENDIO|PREVENZIONE INCENDIO|LOTTA ANTINCENDIO/.test(n)){
+      var l=/LIVELLO 3|\bL3\b|RISCHIO[A-Z ]*ALTO|\bALTO\b/.test(n)?"l3":
+            (/LIVELLO 2|\bL2\b|RISCHIO[A-Z ]*MEDIO|\bMEDIO\b/.test(n)?"l2":
+            (/LIVELLO 1|\bL1\b|RISCHIO[A-Z ]*BASSO|\bBASSO\b/.test(n)?"l1":""));
+      return build("antincendio",l,nat,raw,l?"euristica":"euristica");
+    }
+    // Primo soccorso
+    if(/PRIMO SOCCORSO/.test(n)){
+      var g=/GRUPPO A\b|\bGRUPPO A$/.test(n)?"a":(/GRUPPO B|GRUPPO BC|\bB C\b|\bBC\b/.test(n)?"bc":"");
+      return build("primoSoccorso",g,nat,raw,"euristica");
+    }
+    // BLSD
+    if(/\bBLSD\b|DEFIBRILLATOR/.test(n)){
+      var s=/SANITARI/.test(n)?"san":(/LAICO/.test(n)?"laico":"");
+      return build("blsd",s,nat,raw,"euristica");
+    }
+    // RSPP / ASPP (fuori catalogo ASR -> designazione/pregresso)
+    if(/\bRSPP\b|\bASPP\b/.test(n)){
+      var fig=(/\bRSPP\b/.test(n)&&!/\bASPP\b/.test(n))?"rspp":(/\bASPP\b/.test(n)&&!/\bRSPP\b/.test(n)?"aspp":"rsppaspp");
+      var mod=/MODULO A\b|\bMOD A\b/.test(n)?"mod-a":(/MODULO B|\bMOD B\b/.test(n)?"mod-b":(/MODULO C|\bMOD C\b/.test(n)?"mod-c":""));
+      return build(fig,mod,nat,raw,"euristica");
+    }
+    // Preposto / Dirigente / Datore / RLS
+    if(/\bPREPOSTO\b|\bPREPOSTI\b/.test(n)) return build("preposto","",nat,raw,"euristica");
+    if(/\bDIRIGENTE\b|\bDIRIGENTI\b/.test(n)) return build("dirigente","",nat,raw,"euristica");
+    if(/DATORE DI LAVORO/.test(n)){
+      if(/\bRSPP\b|ART 34/.test(n)) return build("datoreRspp","",nat,raw,"euristica");
+      return build("datore","",nat,raw,"euristica");
+    }
+    if(/\bRLS\b|RAPPRESENTANT[A-Z ]*LAVORATOR[A-Z ]*SICUREZZA/.test(n)) return build("rls","",nat,raw,"euristica");
+    // Attrezzature / rischi particolari (figura nota, corsoId best-effort null)
+    if(/CARRELLO ELEVATORE|MULETTO/.test(n)) return build("carrello","",nat,raw,"euristica");
+    if(/\bPLE\b|PIATTAFORM/.test(n)) return build("ple","",nat,raw,"euristica");
+    if(/GRU SU AUTOCARRO/.test(n)) return build("gruAutocarro","",nat,raw,"euristica");
+    if(/GRU A TORRE/.test(n)) return build("gruTorre","",nat,raw,"euristica");
+    if(/GRU MOBIL/.test(n)) return build("gruMobili","",nat,raw,"euristica");
+    if(/CARROPONTE/.test(n)) return build("carroponte","",nat,raw,"euristica");
+    if(/TRATTOR/.test(n)) return build("trattori","",nat,raw,"euristica");
+    if(/ESCAVATOR|MOVIMENTO TERRA|PALE CARICATRICI|TERNE/.test(n)) return build("escavatori","",nat,raw,"euristica");
+    if(/AMBIENTI CONFINATI|SPAZI CONFINATI/.test(n)) return build("ambientiConfinati","",nat,raw,"euristica");
+    if(/LAVORI IN QUOTA|DPI ANTICADUTA/.test(n)) return build("lavoriQuota","",nat,raw,"euristica");
+    if(/PES|PAV|PEI|CEI 11 27/.test(n)) return build("pesPavPei","",nat,raw,"euristica");
+    // non riconosciuto -> da mappare a mano
+    return {key:null, corsoId:null, figura:null, sottotipo:"", natura:nat, label:raw, conf:null};
+  }
+
+  root.IMPORTCORE = { NN:NN, mapCorso:mapCorso };
+})(typeof global!=="undefined"?global:window);
+
+</script>
 <script>
 const CATALOGO_DEFAULT = [{"id": "primo-soccorso-az-a-completo", "nome": "PRIMO SOCCORSO AZ. A - Completo", "figura": "Addetto primo soccorso", "obbligatorio": "SI", "asr": "N", "durata": "16", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": ""}, {"id": "primo-soccorso-az-a-aggiornamento", "nome": "PRIMO SOCCORSO AZ. A - Aggiornamento", "figura": "Addetto primo soccorso", "obbligatorio": "SI", "asr": "N", "durata": "6", "periodicitaMesi": 36, "aggiornamento": true, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": ""}, {"id": "primo-soccorso-az-b-c-completo", "nome": "PRIMO SOCCORSO AZ. B-C - Completo", "figura": "Addetto primo soccorso", "obbligatorio": "SI", "asr": "N", "durata": "12", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": ""}, {"id": "primo-soccorso-az-b-c-aggiornamento", "nome": "PRIMO SOCCORSO AZ. B-C – Aggiornamento", "figura": "Addetto primo soccorso", "obbligatorio": "SI", "asr": "N", "durata": "4", "periodicitaMesi": 36, "aggiornamento": true, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": ""}, {"id": "blsd-laico-irc", "nome": "BLSD LAICO IRC", "figura": "Addetto BLSD", "obbligatorio": "SI", "asr": "N", "durata": "5 (1T + 4P)", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": ""}, {"id": "blsd-laico-irc-retraining", "nome": "BLSD LAICO IRC, retraining", "figura": "Addetto BLSD", "obbligatorio": "SI", "asr": "N", "durata": "3", "periodicitaMesi": 24, "aggiornamento": true, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": ""}, {"id": "blsd-sanitario-irc", "nome": "BLSD SANITARIO IRC", "figura": "Addetto BLSD", "obbligatorio": "SI", "asr": "N", "durata": "8", "periodicitaMesi": 24, "aggiornamento": false, "propedeutico": "Valido per soli OSS, soccorritori, medici, infermieri e personale sanitario che opera in aree di emergenza", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": ""}, {"id": "antincendio-ex-r-basso-l1-completo", "nome": "ANTINCENDIO ex R. BASSO L1 - Completo", "figura": "Addetto antincendio", "obbligatorio": "SI", "asr": "N", "durata": "4", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": ""}, {"id": "antincendio-ex-r-basso-l1-aggiornamento", "nome": "ANTINCENDIO ex R. BASSO L1 - Aggiornamento", "figura": "Addetto antincendio", "obbligatorio": "SI", "asr": "N", "durata": "2", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": ""}, {"id": "antincendio-ex-r-medio-l2-completo", "nome": "ANTINCENDIO ex R. MEDIO L2 - Completo", "figura": "Addetto antincendio", "obbligatorio": "SI", "asr": "N", "durata": "8", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": ""}, {"id": "antincendio-ex-r-medio-l2-aggiornamento", "nome": "ANTINCENDIO ex R. MEDIO L2 - Aggiornamento", "figura": "Addetto antincendio", "obbligatorio": "SI", "asr": "N", "durata": "5", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": ""}, {"id": "antincendio-ex-r-alto-l3-completo", "nome": "ANTINCENDIO ex R. ALTO L3 - Completo", "figura": "Addetto antincendio", "obbligatorio": "SI", "asr": "N", "durata": "16", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": ""}, {"id": "antincendio-ex-r-alto-l3-aggiornamento", "nome": "ANTINCENDIO ex R. ALTO L3 - Aggiornamento", "figura": "Addetto antincendio", "obbligatorio": "SI", "asr": "N", "durata": "8", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": ""}, {"id": "rspp-dl-comune", "nome": "RSPP DL - Comune", "figura": "Datore di lavoro–RSPP (art. 34)", "obbligatorio": "SI", "asr": "S", "durata": "8", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "Datore di lavoro", "aula": true, "vc": true, "el": false, "transitoria": null, "esonero": "Credito totale se:\n- DDL RSPP r. basso 16 ore\n- RSPP A+B+C"}, {"id": "rspp-dl-integrativo-mod-1-ateco-2007-a-01-02-agricoltura-silvicoltura-e-zootecnia", "nome": "RSPP DL - Integrativo - Mod 1 (Ateco 2007 A 01-02 – Agricoltura, Silvicoltura e Zootecnia)", "figura": "Datore di lavoro–RSPP (art. 34)", "obbligatorio": "SI", "asr": "S", "durata": "16", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "Datore di lavoro + RSPP DL Comune", "aula": true, "vc": true, "el": false, "transitoria": null, "esonero": "Credito totale se:\n- DDL RSPP r. medio 32 ore -->\nAttestato deve riportare ATECO 01 02\n- RSPP A+B+C"}, {"id": "rspp-dl-integrativo-mod-2-ateco-2007-a-03-pesca", "nome": "RSPP DL - Integrativo - Mod 2 (Ateco 2007 A 03 - Pesca)", "figura": "Datore di lavoro–RSPP (art. 34)", "obbligatorio": "SI", "asr": "S", "durata": "12", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "Datore di lavoro + RSPP DL Comune", "aula": true, "vc": true, "el": false, "transitoria": null, "esonero": "Credito totale se:\n- DDL RSPP r. medio 32 ore --> Attestato deve riportare ATECO 03\n- RSPP A+B+C"}, {"id": "rspp-dl-integrativo-mod-3-ateco-2007-f-costruzioni", "nome": "RSPP DL - Integrativo - Mod 3 (Ateco 2007 F - Costruzioni)", "figura": "Datore di lavoro–RSPP (art. 34)", "obbligatorio": "SI", "asr": "S", "durata": "16", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "Datore di lavoro + RSPP DL Comune", "aula": true, "vc": true, "el": false, "transitoria": null, "esonero": "Credito totale se:\n- DDL RSPP r. alto 48 ore --> Attestato deve riportare ATECO F\n- RSPP A+B+C"}, {"id": "rspp-dl-integrativo-mod-4-ateco-2007-c-attivit-manifatturiere-19-fabbricazione-di-coke-e-prodotti-derivanti-dalla-raffinazione-del-petrolio-e-20-fabbricazione-di-prodotti-chimici", "nome": "RSPP DL - Integrativo - Mod 4  (Ateco 2007 C – Attività manifatturiere (19 – Fabbricazione di coke e prodotti derivanti dalla raffinazione del petrolio e 20 – Fabbricazione di prodotti chimici))", "figura": "Datore di lavoro–RSPP (art. 34)", "obbligatorio": "SI", "asr": "S", "durata": "16", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "Datore di lavoro + RSPP DL Comune", "aula": true, "vc": true, "el": false, "transitoria": null, "esonero": "Credito totale se:\n- DDL RSPP r. medio 32 ore --> Attestato deve riportare ATECO C 19\n- RSPP A+B+C"}, {"id": "rspp-dl-aggiornamento", "nome": "RSPP DL - Aggiornamento", "figura": "Datore di lavoro–RSPP (art. 34)", "obbligatorio": "SI", "asr": "S", "durata": "8", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "Datore di lavoro + RSPP DL Comune", "aula": true, "vc": true, "el": true, "transitoria": null, "esonero": ""}, {"id": "preposti", "nome": "PREPOSTI", "figura": "Preposto", "obbligatorio": "SI", "asr": "S", "durata": "12", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "Corso Lavoratori Generale + Specifica", "aula": true, "vc": true, "el": false, "transitoria": null, "esonero": "Credito totale se Corso Acc 21/12/2011\nSe corso da + di 2 anni, aggiornamento entro 24.05.2026"}, {"id": "preposti-aggiornamento", "nome": "PREPOSTI - AGGIORNAMENTO", "figura": "Preposto", "obbligatorio": "SI", "asr": "S", "durata": "6", "periodicitaMesi": 24, "aggiornamento": true, "propedeutico": "Corso Preposti Generale", "aula": true, "vc": true, "el": false, "transitoria": null, "esonero": ""}, {"id": "dirigenti", "nome": "DIRIGENTI", "figura": "Dirigente", "obbligatorio": "NO", "asr": "S", "durata": "12", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": true, "el": true, "transitoria": "2027-05-24", "esonero": "Credito totale se Corso Acc 21/12/2011, non per Cantieri"}, {"id": "dirigenti-aggiornamento", "nome": "DIRIGENTI - AGGIORNAMENTO", "figura": "Dirigente", "obbligatorio": "NO", "asr": "S", "durata": "6", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "Corso Dirigenti Generale", "aula": true, "vc": true, "el": true, "transitoria": null, "esonero": "Credito totale se Corso Acc 21/12/2011, non per Cantieri"}, {"id": "rls-completo-el", "nome": "RLS – Completo EL", "figura": "RLS", "obbligatorio": "SI", "asr": "S", "durata": "32", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": true, "el": true, "transitoria": null, "esonero": "Credito totale se CSP/CSE - RSPP - ASPP"}, {"id": "rls-aggiornamento-per-aziende-fino-a-50-addetti-aula-el", "nome": "RLS - Aggiornamento per aziende fino a 50 addetti AULA/EL", "figura": "RLS", "obbligatorio": "SI", "asr": "S", "durata": "4", "periodicitaMesi": 12, "aggiornamento": true, "propedeutico": "Corso RLS Generale", "aula": true, "vc": true, "el": true, "transitoria": null, "esonero": "Credito totale se Dirigente - Preposto - Lavoratore"}, {"id": "rls-aggiornamento-per-aziende-fino-a-50-addetti-videoc", "nome": "RLS - Aggiornamento per aziende fino a 50 addetti VIDEOC", "figura": "RLS", "obbligatorio": "SI", "asr": "S", "durata": "4", "periodicitaMesi": 12, "aggiornamento": true, "propedeutico": "Corso RLS Generale", "aula": true, "vc": true, "el": true, "transitoria": null, "esonero": "Credito totale se Dirigente - Preposto - Lavoratore"}, {"id": "rls-aggiornamento-per-aziende-oltre-50-addetti-aula-el", "nome": "RLS - Aggiornamento per aziende oltre 50 addetti AULA/EL", "figura": "RLS", "obbligatorio": "SI", "asr": "S", "durata": "8", "periodicitaMesi": 12, "aggiornamento": true, "propedeutico": "Corso RLS Generale", "aula": true, "vc": true, "el": true, "transitoria": null, "esonero": "Credito totale se Dirigente - Preposto - Lavoratore"}, {"id": "rls-aggiornamento-per-aziende-oltre-50-addetti-videoc", "nome": "RLS - Aggiornamento per aziende oltre 50 addetti VIDEOC", "figura": "RLS", "obbligatorio": "SI", "asr": "S", "durata": "8", "periodicitaMesi": 12, "aggiornamento": true, "propedeutico": "Corso RLS Generale", "aula": true, "vc": true, "el": true, "transitoria": null, "esonero": "Credito totale se Dirigente - Preposto - Lavoratore"}, {"id": "lavoratori-formazione-generale", "nome": "LAVORATORI - FORMAZIONE GENERALE", "figura": "Lavoratore", "obbligatorio": "SI", "asr": "S", "durata": "4", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": true, "el": true, "transitoria": null, "esonero": "Credito totale se Corso Acc 21/12/2011"}, {"id": "lavoratori-formazione-specifica-basso-rischio", "nome": "LAVORATORI - FORMAZIONE SPECIFICA - BASSO RISCHIO", "figura": "Lavoratore", "obbligatorio": "SI", "asr": "S", "durata": "4", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "Lavoratori generale", "aula": true, "vc": true, "el": true, "transitoria": null, "esonero": "Credito totale se Corso Acc 21/12/2011"}, {"id": "lavoratori-formazione-specifica-medio-rischio", "nome": "LAVORATORI - FORMAZIONE SPECIFICA - MEDIO RISCHIO", "figura": "Lavoratore", "obbligatorio": "SI", "asr": "S", "durata": "8", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "Lavoratori generale", "aula": true, "vc": true, "el": false, "transitoria": null, "esonero": "Credito totale se Corso Acc 21/12/2011"}, {"id": "lavoratori-formazione-specifica-alto-rischio", "nome": "LAVORATORI - FORMAZIONE SPECIFICA - ALTO RISCHIO", "figura": "Lavoratore", "obbligatorio": "SI", "asr": "S", "durata": "12", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "Lavoratori generale", "aula": true, "vc": true, "el": false, "transitoria": null, "esonero": "Credito totale se Corso Acc 21/12/2011"}, {"id": "lavoratori-formazione-specifica-aggiornamento", "nome": "LAVORATORI - FORMAZIONE SPECIFICA - Aggiornamento", "figura": "Lavoratore", "obbligatorio": "SI", "asr": "S", "durata": "6", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "Lavoratori generale + specifica", "aula": true, "vc": true, "el": true, "transitoria": null, "esonero": "Credito totale se Corso Acc 21/12/2011"}, {"id": "datore-di-lavoro", "nome": "DATORE DI LAVORO", "figura": "Datore di lavoro", "obbligatorio": "SI", "asr": "S", "durata": "16", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": true, "el": true, "transitoria": "2027-05-24", "esonero": "Credito totale se il DL ha:\n• formazione pregressa come DDL RSPP, RSPP (Mod. A+B+C), ASPP (Mod. A+B), Coordinatore della sicurezza\n• frequentato corsi per Datori di Lavoro conformi all’ASR 2025 entro il 24 maggio 2025\n• svolto una formazione per Dirigenti ai sensi dell’Accordo Stato Regioni del 2011"}, {"id": "datore-di-lavoro-aggiornamento", "nome": "DATORE DI LAVORO - AGGIORNAMENTO", "figura": "Datore di lavoro", "obbligatorio": "SI", "asr": "S", "durata": "6", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "Datore Di Lavoro Generale", "aula": true, "vc": true, "el": true, "transitoria": null, "esonero": ""}, {"id": "carrello-elevatore-carr-ind-semov", "nome": "CARRELLO ELEVATORE - Carr ind semov", "figura": "Addetto carrello elevatore", "obbligatorio": "NO", "asr": "S", "durata": "12 (8T+4P)", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "carrello-elevatore-carr-braccio-teles", "nome": "CARRELLO ELEVATORE - Carr braccio teles", "figura": "Addetto carrello elevatore", "obbligatorio": "NO", "asr": "S", "durata": "12 (8T+4P)", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "carrello-elevatore-carr-soll-elev-telesc-rotativi", "nome": "CARRELLO ELEVATORE - Carr/soll/elev telesc rotativi", "figura": "Addetto carrello elevatore", "obbligatorio": "NO", "asr": "S", "durata": "12 (8T+4P)", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "carrello-elevatore-carr-ind-semov-teles-rotativi", "nome": "CARRELLO ELEVATORE - Carr ind semov+teles+rotativi", "figura": "Addetto carrello elevatore", "obbligatorio": "NO", "asr": "S", "durata": "16 (8T+8P)", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "carrello-elevatore-carrelli-semoventi-a-braccio-telescopico-e-carrelli-semoventi-telescopici-rotativi-destinati-al-sollevamento-di-carichi-sospesi-e-di-persone", "nome": "CARRELLO ELEVATORE - Carrelli semoventi a braccio telescopico e carrelli semoventi telescopici rotativi destinati al sollevamento di carichi sospesi e di persone", "figura": "Addetto carrello elevatore", "obbligatorio": "NO", "asr": "S", "durata": "14 (8T+6P)", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "carrello-elevatore-aggiornamento", "nome": "CARRELLO ELEVATORE - Aggiornamento", "figura": "Addetto carrello elevatore", "obbligatorio": "NO", "asr": "S", "durata": "4 (P)", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "Corso Carrello Elevatore Generale", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "ple-con-senza-stabilizzatori", "nome": "PLE CON/SENZA STABILIZZATORI", "figura": "Addetto PLE", "obbligatorio": "NO", "asr": "S", "durata": "10 (4T+6P)", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "ple-con-senza-stabilizzatori-aggiornamento", "nome": "PLE CON/SENZA STABILIZZATORI - Aggiornamento", "figura": "Addetto PLE", "obbligatorio": "NO", "asr": "S", "durata": "4 (P)", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "Corso PLE con/senza stabilizzatori", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "trattori-a-cingoli", "nome": "TRATTORI A CINGOLI", "figura": "Addetto trattori a cingoli", "obbligatorio": "NO", "asr": "S", "durata": "8 (3T+5P)", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "trattori-a-cingoli-aggiornamento", "nome": "TRATTORI A CINGOLI - Aggiornamento", "figura": "Addetto trattori a cingoli", "obbligatorio": "NO", "asr": "S", "durata": "4 (P)", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "trattori-a-ruote", "nome": "TRATTORI A RUOTE", "figura": "Addetto trattori a ruote", "obbligatorio": "NO", "asr": "S", "durata": "8 (3T+5P)", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "trattori-a-ruote-aggiornamento", "nome": "TRATTORI A RUOTE - Aggiornamento", "figura": "Addetto trattori a ruote", "obbligatorio": "NO", "asr": "S", "durata": "4 (P)", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "Corso Trattori  Ruote Generale", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "escavatori-idra-o-escavatori-a-fune-o-caricatori-frontali-o-terne-o-autoribaltabili-a-cingoli", "nome": "ESCAVATORI IDRA o ESCAVATORI A FUNE o CARICATORI FRONTALI o TERNE o AUTORIBALTABILI A CINGOLI", "figura": "Addetto escavatori", "obbligatorio": "NO", "asr": "S", "durata": "10 (4T+6P)", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "escavatori-idra-o-escavatori-a-fune-o-caricatori-frontali-o-terne-o-autoribaltabili-a-cingoli-aggiornamento", "nome": "ESCAVATORI IDRA o ESCAVATORI A FUNE o CARICATORI FRONTALI o TERNE o AUTORIBALTABILI A CINGOLI - Aggiornamento", "figura": "Addetto escavatori", "obbligatorio": "NO", "asr": "S", "durata": "4 (P)", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "Corso Escavatori Idra o Escavatori a Fune o Caricatori Frontali o Terne o Autoribaltabili a Cingoli Generale", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "escavatori-idra-pale-caricatrici-frontali-terne-4h-teoria-12h-pratica", "nome": "ESCAVATORI IDRA, PALE CARICATRICI FRONTALI, TERNE (4h Teoria + 12h pratica)", "figura": "Addetto escavatori", "obbligatorio": "NO", "asr": "S", "durata": "16 (4T+12P)", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "escavatori-idra-pale-caricatrici-frontali-terne-aggiornamento", "nome": "ESCAVATORI IDRA, PALE CARICATRICI FRONTALI, TERNE - Aggiornamento", "figura": "Addetto escavatori", "obbligatorio": "NO", "asr": "S", "durata": "4 (P)", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "Corso Escavatori Idra o Escavatori a Fune o Caricatori Frontali o Terne Generale", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "gru-su-autocarro", "nome": "GRU SU AUTOCARRO", "figura": "Addetto gru autocarro", "obbligatorio": "NO", "asr": "S", "durata": "12 (4T+8P)", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "gru-su-autocarro-aggiornamento", "nome": "GRU SU AUTOCARRO - Aggiornamento", "figura": "Addetto gru autocarro", "obbligatorio": "NO", "asr": "S", "durata": "4 (P)", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "Corso Gru su autocarro Generale", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "gru-a-torre-a-rotazione-in-basso-o-a-rotazione-in-alto", "nome": "GRU A TORRE A ROTAZIONE IN BASSO o A ROTAZIONE IN ALTO", "figura": "Addetto gru a torre", "obbligatorio": "NO", "asr": "S", "durata": "12 (8T+4P)", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "gru-a-torre-a-rotazione-in-basso-o-a-rotazione-in-alto-aggiornamento", "nome": "GRU A TORRE A ROTAZIONE IN BASSO o A ROTAZIONE IN ALTO - Aggiornamento", "figura": "Addetto gru a torre", "obbligatorio": "NO", "asr": "S", "durata": "4", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "Corso Gru a torre a rotazione in basso O a rotazione in alto Generale", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "gru-a-torre-a-rotazione-in-basso-e-a-rotazione-in-alto", "nome": "GRU A TORRE A ROTAZIONE IN BASSO e A ROTAZIONE IN ALTO", "figura": "Addetto gru a torre", "obbligatorio": "NO", "asr": "S", "durata": "14 (8T+6P)", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "gru-a-torre-a-rotazione-in-basso-e-a-rotazione-in-alto-aggiornamento", "nome": "GRU A TORRE A ROTAZIONE IN BASSO e A ROTAZIONE IN ALTO - Aggiornamento", "figura": "Addetto gru a torre", "obbligatorio": "NO", "asr": "S", "durata": "4", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "Corso Gru a torre a rotazione in basso e a rotazione in alto Generale", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "gru-mobili-autocarrate-e-semoventi-su-ruote-con-braccio-telescopico-o-tralicciato-ed-eventuale-falcone-fisso", "nome": "GRU MOBILI AUTOCARRATE E SEMOVENTI SU RUOTE CON BRACCIO TELESCOPICO O TRALICCIATO ED EVENTUALE FALCONE FISSO", "figura": "Addetto gru mobili", "obbligatorio": "NO", "asr": "S", "durata": "14 (7T+7P)", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "gru-mobili-autocarrate-e-semoventi-su-ruote-con-braccio-telescopico-o-tralicciato-ed-eventuale-falcone-fisso-aggiornamento", "nome": "GRU MOBILI AUTOCARRATE E SEMOVENTI SU RUOTE CON BRACCIO TELESCOPICO O TRALICCIATO ED EVENTUALE FALCONE FISSO - Aggiornamento", "figura": "Addetto gru mobili", "obbligatorio": "NO", "asr": "S", "durata": "4 (P)", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "Corso Gru Mobile Autocarrate e Semoventi su ruote con Braccio Telescopisco o Tralicciato ed eventuale falcone fisso Generale", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "gru-mobili-su-ruote-con-falcone-telescopico-o-brandeggiabile", "nome": "GRU MOBILI SU RUOTE CON FALCONE TELESCOPICO O BRANDEGGIABILE", "figura": "Addetto gru mobili", "obbligatorio": "NO", "asr": "S", "durata": "8 (4T+4P)", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "gru-mobili-su-ruote-con-falcone-telescopico-o-brandeggiabile-aggiornamento", "nome": "GRU MOBILI SU RUOTE CON FALCONE TELESCOPICO O BRANDEGGIABILE - Aggiornamento", "figura": "Addetto gru mobili", "obbligatorio": "NO", "asr": "S", "durata": "4 (P)", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "Corso Gru Mobile su ruote con Falcone Telescopico o Brandeggiabile Generale", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": "Credito totale se Credito tot. 22/02/2012"}, {"id": "carroponte-comando-in-cabina", "nome": "CARROPONTE - Comando in cabina", "figura": "Addetto carroponte", "obbligatorio": "NO", "asr": "S", "durata": "10 (4T+6P)", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": "2026-05-24", "esonero": ""}, {"id": "carroponte-comando-pensile-o-radiocomandato", "nome": "CARROPONTE - Comando pensile o radiocomandato", "figura": "Addetto carroponte", "obbligatorio": "NO", "asr": "S", "durata": "10 (4T+6P)", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": "2026-05-24", "esonero": ""}, {"id": "carroponte-comando-pensile-o-in-cabina", "nome": "CARROPONTE - Comando pensile o in cabina", "figura": "Addetto carroponte", "obbligatorio": "NO", "asr": "S", "durata": "11 (4T+7P)", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": "2026-05-24", "esonero": ""}, {"id": "carroponte-aggiornamento", "nome": "CARROPONTE - Aggiornamento", "figura": "Addetto carroponte", "obbligatorio": "NO", "asr": "S", "durata": "4", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "Corso Carroponte Generale", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": ""}, {"id": "lavori-in-quota-e-dpi-anticaduta", "nome": "LAVORI IN QUOTA E DPI ANTICADUTA", "figura": "Addetto lavori in quota", "obbligatorio": "NO", "asr": "S", "durata": "8", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": ""}, {"id": "lavori-in-quota-e-dpi-anticaduta-aggiornamento", "nome": "LAVORI IN QUOTA E DPI ANTICADUTA - Aggiornamento", "figura": "Addetto lavori in quota", "obbligatorio": "NO", "asr": "S", "durata": "4", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "Lavori in Quota e DPI Anticaduta Generale", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": ""}, {"id": "corso-addetti-ai-lavori-elettrici-pes-pav-pei-norma-cei-11-27", "nome": "CORSO ADDETTI AI LAVORI ELETTRICI – PES, PAV, PEI – NORMA CEI 11-27", "figura": "Addetto lavori elettrici", "obbligatorio": "NO", "asr": "S", "durata": "16", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": true, "transitoria": null, "esonero": ""}, {"id": "corso-addetti-ai-lavori-elettrici-pes-pav-pei-norma-cei-11-27-aggiornamento", "nome": "CORSO ADDETTI AI LAVORI ELETTRICI – PES, PAV, PEI – NORMA CEI 11-27 - Aggiornamento", "figura": "Addetto lavori elettrici", "obbligatorio": "NO", "asr": "S", "durata": "4", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "Corso Addetti ai lavoro elettrici - PES,PAV,PEI- NORMA CEI 11-27", "aula": true, "vc": false, "el": true, "transitoria": null, "esonero": ""}, {"id": "corso-addetti-ai-lavori-elettrici-pes-pav-pei-macchine-elettriche-ibride", "nome": "CORSO ADDETTI AI LAVORI ELETTRICI – PES, PAV, PEI – macchine elettriche/ibride", "figura": "Addetto lavori elettrici", "obbligatorio": "NO", "asr": "S", "durata": "16", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": true, "el": true, "transitoria": null, "esonero": ""}, {"id": "corso-addetti-ai-lavori-elettrici-pes-pav-pei-macchine-elettriche-ibride-aggiornamento", "nome": "CORSO ADDETTI AI LAVORI ELETTRICI – PES, PAV, PEI – macchine elettriche/ibride Aggiornamento", "figura": "Addetto lavori elettrici", "obbligatorio": "NO", "asr": "S", "durata": "4", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "CORSO ADDETTI AI LAVORI ELETTRICI – PES, PAV, PEI – macchine elettriche/ibride generale", "aula": true, "vc": true, "el": true, "transitoria": null, "esonero": ""}, {"id": "ambienti-confinati", "nome": "AMBIENTI CONFINATI", "figura": "Addetto lavori in ambienti confinati", "obbligatorio": "NO", "asr": "S", "durata": "12 ( 4T + 8P )", "periodicitaMesi": null, "aggiornamento": false, "propedeutico": "", "aula": true, "vc": false, "el": false, "transitoria": "2026-05-24", "esonero": ""}, {"id": "ambienti-confinati-aggiornamento", "nome": "AMBIENTI CONFINATI - Aggiornamento", "figura": "Addetto lavori in ambienti confinati", "obbligatorio": "NO", "asr": "S", "durata": "4", "periodicitaMesi": 60, "aggiornamento": true, "propedeutico": "Corso Ambienti Confinati", "aula": true, "vc": false, "el": false, "transitoria": null, "esonero": ""}];
 const K_CAT="org81v2:catalogo",K_CATMETA="org81v2:catalogo_meta";
@@ -345,8 +455,8 @@ const badge=k=>{const S=STATI[k]||STATI.na;return `<span class="badge ${S.c}">${
 /* ===================== RENDER ===================== */
 const $=id=>document.getElementById(id);
 function render(){
-  if(ST.az&&!ST.az.documenti)ST.az.documenti=[];if(ST.az&&!ST.az.persone)ST.az.persone=[];migraPersone();
-  $("app").innerHTML=headerHTML()+(ST.az?tabsHTML()+`<div class="main"><div class="wrap" id="view"></div></div>`:emptyHTML())+`<div class="foot">Overall Group S.r.l. · v2.10 · Dati salvati in questo browser (localStorage) · catalogo da ASR26-TabellaCorsi.xlsx (${CATALOGO.length} corsi)</div>`;
+  if(ST.az&&!ST.az.documenti)ST.az.documenti=[];if(ST.az&&!ST.az.persone)ST.az.persone=[];if(ST.az){ST.az.anagrafica.piva=ST.az.anagrafica.piva||"";ST.az.anagrafica.cf=ST.az.anagrafica.cf||"";}migraPersone();
+  $("app").innerHTML=headerHTML()+(ST.az?tabsHTML()+`<div class="main"><div class="wrap" id="view"></div></div>`:emptyHTML())+`<div class="foot">Overall Group S.r.l. · v2.11 · Dati salvati in questo browser (localStorage) · catalogo da ASR26-TabellaCorsi.xlsx (${CATALOGO.length} corsi)</div>`;
   bindHeader();if(ST.az){bindTabs();renderView()}else bindEmpty();
 }
 function headerHTML(){
@@ -365,7 +475,7 @@ function bindHeader(){
   const n=$("btnNew");if(n)n.onclick=()=>{const nm=prompt("Ragione sociale del nuovo cliente:");if(nm&&nm.trim())nuovaAz(nm.trim())};
   const d=$("btnDel");if(d)d.onclick=()=>{if(confirm(`Eliminare "${ST.az.anagrafica.ragioneSociale}" e tutti i dati?`))eliminaAz(ST.az.id)};
 }
-function nuovaAz(nome){const id=uid();const az={id,anagrafica:{ragioneSociale:nome,ateco:"",rischio:"Medio",nAddetti:"",sede:""},incarichi:[],documenti:[],persone:[]};ls(kAz(id),az);ST.idx.push({id,nome});ls(K_IDX,ST.idx);ST.sel=id;ST.az=az;ST.tab="anagrafica";render()}
+function nuovaAz(nome){const id=uid();const az={id,anagrafica:{ragioneSociale:nome,ateco:"",rischio:"Medio",nAddetti:"",sede:"",piva:"",cf:""},incarichi:[],documenti:[],persone:[]};ls(kAz(id),az);ST.idx.push({id,nome});ls(K_IDX,ST.idx);ST.sel=id;ST.az=az;ST.tab="anagrafica";render()}
 function eliminaAz(id){ldel(kAz(id));ST.idx=ST.idx.filter(x=>x.id!==id);ls(K_IDX,ST.idx);if(ST.idx.length){ST.sel=ST.idx[0].id;ST.az=lg(kAz(ST.sel))}else{ST.sel=null;ST.az=null}render()}
 function rinominaIdx(id,nome){const x=ST.idx.find(a=>a.id===id);if(x){x.nome=nome;ls(K_IDX,ST.idx)}}
 
@@ -376,11 +486,11 @@ function emptyHTML(){return `<div style="max-width:560px;margin:70px auto;text-a
 function bindEmpty(){const b=$("emptyNew");if(b)b.onclick=()=>{const nm=prompt("Ragione sociale del cliente:");if(nm&&nm.trim())nuovaAz(nm.trim())}}
 
 function tabsHTML(){
-  const items=[["cruscotto","📊 Cruscotto"],["organigramma","👥 Organigramma"],["persone","👤 Persone"],["anagrafica","🏢 Anagrafica"],["fascicolo","📁 Fascicolo"],["catalogo","📚 Catalogo & Regole"],["dati","💾 Backup"]];
+  const items=[["cruscotto","📊 Cruscotto"],["organigramma","👥 Organigramma"],["persone","👤 Persone"],["anagrafica","🏢 Anagrafica"],["fascicolo","📁 Fascicolo"],["importa","📥 Importa"],["catalogo","📚 Catalogo & Regole"],["dati","💾 Backup"]];
   return `<div class="tabs"><div class="wrap">${items.map(([k,l])=>`<button class="tab ${ST.tab===k?"on":""}" data-tab="${k}">${l}</button>`).join("")}</div></div>`;
 }
 function bindTabs(){document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{ST.tab=b.dataset.tab;render()})}
-function renderView(){const v=$("view");if(!v)return;({cruscotto:renderCruscotto,organigramma:renderOrg,persone:renderPersone,anagrafica:renderAnag,fascicolo:renderFascicolo,catalogo:renderCatalogo,dati:renderDati}[ST.tab])(v)}
+function renderView(){const v=$("view");if(!v)return;({cruscotto:renderCruscotto,organigramma:renderOrg,persone:renderPersone,importa:renderImporta,anagrafica:renderAnag,fascicolo:renderFascicolo,catalogo:renderCatalogo,dati:renderDati}[ST.tab])(v)}
 
 /* -------- Scadenzario -------- */
 function rsppModEso(inc,key){
@@ -505,6 +615,7 @@ function findOrCreatePersona(d){
 function migraPersone(){
   if(!ST.az) return;
   ST.az.persone=ST.az.persone||[];
+  ST.az.persone.forEach(function(p){p.formazioni=p.formazioni||[];});
   (ST.az.incarichi||[]).forEach(function(inc){
     if(inc.personaId&&personaById(inc.personaId)) return;
     var lab=(inc.persona||"").trim();
@@ -666,7 +777,7 @@ function renderAnag(v){
   const a=ST.az.anagrafica;const atecoOpts=Object.keys(ALLEGATO_IV).sort().map(d=>`<option value="${d} — ${esc(ALLEGATO_IV[d][2])} · ${ALLEGATO_IV[d][1]}">`).join("");
   const F=(label,k,type,opts)=>opts?`<div class="field"><label class="f">${label}</label><select class="t" data-k="${k}">${opts.map(o=>`<option ${a[k]===o?"selected":""}>${o}</option>`).join("")}</select></div>`:`<div class="field"><label class="f">${label}</label><input class="t" type="${type||"text"}" data-k="${k}" value="${esc(a[k])}"></div>`;
   v.innerHTML=`<div style="max-width:560px"><h3 class="sec">Anagrafica azienda</h3>
-    ${F("Ragione sociale","ragioneSociale")}<div class="field"><label class="f">Codice ATECO * <span class="muted" style="font-weight:400">(cerca per codice o attività)</span></label><input class="t" data-k="ateco" list="atecoList" autocomplete="off" placeholder="es. 56 oppure «ristorazione»…" value="${esc(a.ateco)}"><datalist id="atecoList">${atecoOpts}</datalist></div>
+    ${F("Ragione sociale","ragioneSociale")}${F("Partita IVA","piva")}${F("Codice fiscale azienda","cf")}<div class="field"><label class="f">Codice ATECO * <span class="muted" style="font-weight:400">(cerca per codice o attività)</span></label><input class="t" data-k="ateco" list="atecoList" autocomplete="off" placeholder="es. 56 oppure «ristorazione»…" value="${esc(a.ateco)}"><datalist id="atecoList">${atecoOpts}</datalist></div>
     ${F("Livello di rischio (auto da ATECO — override per DVR)","rischio",null,["Basso","Medio","Alto"])}
     <div style="margin:-2px 0 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">${rischioPill(true)}${ST.az.anagrafica.ateco?"":'<span class="rwarn">⚠ ATECO obbligatorio: determina rischio, ore e modulo DL-RSPP</span>'}</div>
     ${F("N. addetti","nAddetti","number")}${F("Sede operativa","sede")}
@@ -716,6 +827,192 @@ function buildCatalogo(aoa){const SEZ=["attrezzature","rischi particolari"],out=
   return out;}
 
 /* -------- Backup -------- */
+function learnedMap(){return lg("org81v2:corsoMap")||{};}
+function saveLearned(m){ls("org81v2:corsoMap",m);}
+function varianteImport(figura,sottotipo){
+  if(figura==="lavoratore"&&["basso","medio","alto"].indexOf(sottotipo)>=0)return sottotipo;
+  if(figura==="antincendio"&&["l1","l2","l3"].indexOf(sottotipo)>=0)return sottotipo;
+  if(figura==="primoSoccorso"&&["a","bc"].indexOf(sottotipo)>=0)return sottotipo;
+  return "";
+}
+function nuovoIncarico(tk,pid,plabel,vhint){
+  var T=TIPI[tk];var variante=vhint||"";
+  if(!variante&&T.varianti){
+    if(T.varAuto==="rischio"){var r=(ST.az.anagrafica.rischio||"").toLowerCase();variante=r.startsWith("b")?"basso":r.startsWith("a")?"alto":"medio";}
+    else if(T.varAuto==="addetti"){variante=(Number(ST.az.anagrafica.nAddetti)>50)?"o50":"f50";}
+    else if(T.varAuto==="ateco"){variante=modIntegrativoAteco(ST.az.anagrafica.ateco)||"comune";}
+    else variante=T.varianti[0].id;
+  }
+  return {id:uid(),persona:plabel,personaId:pid,tipo:tk,variante:variante,dettaglio:"",dataNomina:"",dataIniziale:"",dataAggiornamento:"",esonero:{flag:false,nota:""},attestato:{file:null,nota:""},moduli:{comune:{data:"",file:null,nota:"",esonero:{flag:false,nota:""},aggiornamento:""},integr:{data:"",file:null,nota:"",esonero:{flag:false,nota:""},aggiornamento:""}}};
+}
+function parseLibretto(wb){
+  var ws=wb.Sheets[wb.SheetNames[0]];
+  var aoa=XLSX.utils.sheet_to_json(ws,{header:1,raw:true});
+  var hr=-1;
+  for(var i=0;i<Math.min(aoa.length,15);i++){
+    var rw=(aoa[i]||[]).map(function(x){return (x==null?"":String(x)).trim();});
+    if(rw.indexOf("Codice Fiscale")>=0 && rw.indexOf("Tipo")>=0){hr=i;break;}
+  }
+  if(hr<0) throw new Error("Intestazione non trovata: servono le colonne 'Codice Fiscale' e 'Tipo'.");
+  var H=(aoa[hr]||[]).map(function(x){return (x==null?"":String(x)).trim();});
+  var col=function(n){return H.indexOf(n);};
+  var ix={cognome:col("Cognome"),nome:col("Nome"),cf:col("Codice Fiscale"),nascita:col("Data di nascita"),citta:col("Citt\u00e0 di nascita"),mansione:col("Mansione"),qualifica:col("Qualifica"),societa:col("Societ\u00e0"),piva:col("P.iva"),tipo:col("Tipo"),durata:col("Durata Formazione"),dettagli:col("Dettagli/Ore"),data:col("Data")};
+  function toISO(v){ if(v==null||v==="")return ""; if(v instanceof Date){var z=new Date(Date.UTC(v.getFullYear(),v.getMonth(),v.getDate()));return z.toISOString().slice(0,10);} if(typeof v==="number"){var d=XLSX.SSF.parse_date_code(v); if(d)return d.y+"-"+String(d.m).padStart(2,"0")+"-"+String(d.d).padStart(2,"0");} var t=String(v).trim(); var m=/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})$/.exec(t); if(m){var y=+m[3]; if(y<100)y+=2000; return y+"-"+String(+m[2]).padStart(2,"0")+"-"+String(+m[1]).padStart(2,"0");} m=/^(\d{4})-(\d{2})-(\d{2})/.exec(t); return m?t.slice(0,10):""; }
+  var out=[];
+  for(var r=hr+1;r<aoa.length;r++){
+    var row=aoa[r]||[];
+    var g=function(k){var c=ix[k];return (c>=0&&row[c]!=null)?(row[c] instanceof Date?row[c]:String(row[c]).trim()):"";};
+    var tipo=g("tipo"),cf=g("cf"),cog=g("cognome");
+    if(!tipo && !cf && !cog) continue;
+    out.push({cognome:g("cognome"),nome:g("nome"),cf:g("cf"),nascita:toISO(g("nascita")),citta:g("citta"),mansione:g("mansione"),qualifica:g("qualifica"),societa:g("societa"),piva:g("piva"),tipo:tipo,data:toISO(g("data"))});
+  }
+  return out;
+}
+function analizzaImport(events){
+  var learned=learnedMap(),az=ST.az;
+  var byKey={};
+  events.forEach(function(ev,idx){
+    var cf=CF.pulisci(ev.cf);
+    var pk=cf||("N:"+normTxt(ev.cognome)+"|"+normTxt(ev.nome));
+    (byKey[pk]=byKey[pk]||{cf:cf,cognome:ev.cognome,nome:ev.nome,nascita:ev.nascita,citta:ev.citta,societa:ev.societa,piva:ev.piva,events:[]}).events.push({idx:idx,tipo:ev.tipo,data:ev.data});
+  });
+  var persone=[],eventi=[],proposte={};
+  Object.keys(byKey).forEach(function(pk){
+    var P=byKey[pk],exist=null;
+    if(P.cf) exist=(az.persone||[]).find(function(x){return CF.pulisci(x.cf||"")===P.cf;});
+    if(!exist) exist=(az.persone||[]).find(function(x){return !CF.pulisci(x.cf||"")&&normTxt(x.cognome)===normTxt(P.cognome)&&normTxt(x.nome)===normTxt(P.nome);});
+    var warn=[];
+    if(P.cf){ if(!CF.valido(P.cf))warn.push("CF non valido"); else{ var cc=CF.crossCheck(P.cognome,P.nome,P.cf); if(cc.cognomeOk===false)warn.push("cognome non combacia col CF"); if(cc.nomeOk===false)warn.push("nome non combacia col CF"); var e=CF.estrai(P.cf); if(e&&P.nascita&&e.dataISO&&e.dataISO!==P.nascita)warn.push("data di nascita file ("+P.nascita+") \u2260 CF ("+e.dataISO+")"); } }
+    else warn.push("CF assente");
+    persone.push({pk:pk,cf:P.cf,cognome:P.cognome,nome:P.nome,nascita:P.nascita,citta:P.citta,esistente:exist?exist.id:null,warn:warn});
+    P.events.forEach(function(ev){
+      var m=IMPORTCORE.mapCorso(ev.tipo,learned),stato="ok",motivo="";
+      if(!m||!m.key){stato="daMappare";}
+      else{
+        if(exist&&(exist.formazioni||[]).some(function(f){return f.key===m.key&&f.data===ev.data;})){stato="dupe";motivo="gi\u00e0 nel libretto";}
+        if(m.figura&&TIPI[m.figura]){
+          var has=exist&&(az.incarichi||[]).some(function(i){return i.personaId===exist.id&&i.tipo===m.figura;});
+          if(!has){var kk=pk+"::"+m.figura;(proposte[kk]=proposte[kk]||{pk:pk,cognome:P.cognome,nome:P.nome,figura:m.figura,label:TIPI[m.figura].label,sottotipo:m.sottotipo,count:0}).count++;}
+        }
+      }
+      eventi.push({idx:ev.idx,pk:pk,cognome:P.cognome,nome:P.nome,tipoRaw:ev.tipo,data:ev.data,map:m,stato:stato,motivo:motivo});
+    });
+  });
+  var aziendaWarn=null,rs=az.anagrafica.ragioneSociale||"";
+  var npiva=function(x){return (x||"").toUpperCase().replace(/[^0-9A-Z]/g,"");};
+  var apiva=npiva(az.anagrafica.piva||""),acf=npiva(az.anagrafica.cf||""),filePiva="",fileSoc="";
+  Object.keys(byKey).forEach(function(k){ if(!filePiva&&byKey[k].piva)filePiva=npiva(byKey[k].piva); if(!fileSoc&&byKey[k].societa)fileSoc=byKey[k].societa; });
+  if((apiva||acf)&&filePiva){ if(filePiva!==apiva&&filePiva!==acf) aziendaWarn="P.IVA del file ("+filePiva+") diversa dall\u0027azienda corrente."; }
+  else if(rs&&fileSoc&&normTxt(fileSoc)!==normTxt(rs)) aziendaWarn="Il file riporta la societ\u00e0 \u00ab"+fileSoc+"\u00bb, diversa dall\u0027azienda corrente \u00ab"+rs+"\u00bb.";
+  return {persone:persone,eventi:eventi,proposte:Object.keys(proposte).map(function(k){return proposte[k];}),aziendaWarn:aziendaWarn};
+}
+function applicaImport(){
+  if(!ST.imp)return;
+  if(ST.imp.rep&&ST.imp.rep.aziendaWarn){var cb=document.getElementById("impConfAzienda"); if(!cb||!cb.checked){alert("Conferma l\u0027import in questa azienda: la societ\u00e0 del file \u00e8 diversa.");return;}}
+  var learned=learnedMap();
+  document.querySelectorAll("[data-map-sel]").forEach(function(sel){
+    var raw=sel.getAttribute("data-raw"),fig=sel.value; if(!fig)return;
+    var nat=/\bAGGIORNAMENTO\b|\bRETRAINING\b/.test(IMPORTCORE.NN(raw))?"aggiornamento":"iniziale";
+    learned[IMPORTCORE.NN(raw)]={key:fig+":-:"+nat,figura:fig,sottotipo:"",natura:nat,corsoId:null};
+  });
+  saveLearned(learned);
+  var rep=analizzaImport(ST.imp.events);
+  var skip={}; document.querySelectorAll("[data-anom-pk]").forEach(function(cb){ if(!cb.checked)skip[cb.getAttribute("data-anom-pk")]=true; });
+  var evOff={}; document.querySelectorAll("[data-ev-idx]").forEach(function(cb){ if(!cb.checked)evOff[cb.getAttribute("data-ev-idx")]=true; });
+  var propOn={}; document.querySelectorAll("[data-prop-key]").forEach(function(cb){ if(cb.checked)propOn[cb.getAttribute("data-prop-key")]=true; });
+  var pidByPk={};
+  rep.persone.forEach(function(P){ if(skip[P.pk])return; var pe=findOrCreatePersona({cognome:P.cognome,nome:P.nome,cf:P.cf}); pidByPk[P.pk]=pe.id; });
+  var nF=0;
+  rep.eventi.forEach(function(E){
+    if(E.stato==="daMappare"||!E.map||!E.map.key)return; if(skip[E.pk])return; if(evOff[E.idx])return;
+    var pid=pidByPk[E.pk]; if(!pid)return; var p=personaById(pid); p.formazioni=p.formazioni||[];
+    if(p.formazioni.some(function(f){return f.key===E.map.key&&f.data===E.data;}))return;
+    p.formazioni.push({key:E.map.key,corsoId:E.map.corsoId,figura:E.map.figura,sottotipo:E.map.sottotipo,natura:E.map.natura,data:E.data,tipoRaw:E.tipoRaw,fonte:"import"}); nF++;
+  });
+  var nI=0;
+  rep.proposte.forEach(function(PR){
+    var kk=PR.pk+"::"+PR.figura; if(!propOn[kk]||skip[PR.pk])return; var pid=pidByPk[PR.pk]; if(!pid)return;
+    if((ST.az.incarichi||[]).some(function(i){return i.personaId===pid&&i.tipo===PR.figura;}))return;
+    var p=personaById(pid),inc=nuovoIncarico(PR.figura,pid,personaLabel(p),varianteImport(PR.figura,PR.sottotipo));
+    var fs=(p.formazioni||[]).filter(function(f){return f.figura===PR.figura;});
+    var ini=fs.filter(function(f){return f.natura==="iniziale"&&f.data;}).map(function(f){return f.data;}).sort();
+    var agg=fs.filter(function(f){return f.natura==="aggiornamento"&&f.data;}).map(function(f){return f.data;}).sort();
+    if(ini.length)inc.dataIniziale=ini[ini.length-1];
+    if(agg.length)inc.dataAggiornamento=agg[agg.length-1];
+    ST.az.incarichi.push(inc); nI++;
+  });
+  migraPersone(); saveAz(); ST.imp=null; ST.tab="persone"; render();
+  alert("Import applicato: "+nF+" voci di libretto, "+nI+" incarichi creati.");
+}
+function renderImporta(v){
+  if(!ST.imp){
+    v.innerHTML='<div style="max-width:680px"><h3 class="sec">Importa libretti formativi</h3>'
+      +'<p style="font-size:13.5px;color:#555">Carica un export Excel (\u00abElenco Visite/Formazioni\u00bb): una riga = persona + un evento formativo. L\u0027app riconosce i corsi, prepara un <b>report</b> e <b>non scrive nulla</b> finch\u00e9 non confermi. Import nell\u0027azienda corrente: <b>'+esc(ST.az.anagrafica.ragioneSociale||"\u2014")+'</b>.</p>'
+      +'<input type="file" id="impFile" accept=".xlsx,.xls"><div id="impMsg" class="muted" style="margin-top:8px;font-size:12px"></div></div>';
+    $("impFile").onchange=function(){
+      var f=this.files[0]; if(!f)return; $("impMsg").textContent="Lettura in corso\u2026";
+      var rd=new FileReader();
+      rd.onload=function(){ try{
+        var wb=XLSX.read(new Uint8Array(rd.result),{type:"array",cellDates:true});
+        var events=parseLibretto(wb);
+        if(!events.length)throw new Error("Nessun evento formativo trovato.");
+        ST.imp={events:events,rep:analizzaImport(events),file:f.name}; render();
+      }catch(e){ $("impMsg").textContent="Errore: "+e.message; } };
+      rd.readAsArrayBuffer(f);
+    };
+    return;
+  }
+  var rep=ST.imp.rep;
+  var ok=rep.eventi.filter(function(e){return e.stato==="ok";});
+  var dupe=rep.eventi.filter(function(e){return e.stato==="dupe";});
+  var dam=rep.eventi.filter(function(e){return e.stato==="daMappare";});
+  var anom=rep.persone.filter(function(p){return p.warn.length;});
+  var figOpts=Object.keys(TIPI).map(function(k){return '<option value="'+k+'">'+esc(TIPI[k].label)+'</option>';}).join("");
+  function nm(p){return esc((p.cognome||"")+" "+(p.nome||""));}
+  function corsoLab(m){return m&&m.key?esc((TIPI[m.figura]?TIPI[m.figura].label:m.figura)+(m.sottotipo?" \u00b7 "+m.sottotipo:"")+" \u00b7 "+m.natura):"\u2014";}
+  var h='<div style="max-width:1000px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><h3 class="sec" style="margin:0">Report import \u2014 '+esc(ST.imp.file||"")+'</h3><div><button class="btn btn-ghost" id="impAnnulla">Annulla</button> <button class="btn btn-p" id="impApplica">\u2705 Applica selezionati</button></div></div>';
+  h+='<p class="muted" style="font-size:12px">Persone nel file: '+rep.persone.length+' \u00b7 eventi: '+rep.eventi.length+' (riconosciuti '+ok.length+', gi\u00e0 presenti '+dupe.length+', da mappare '+dam.length+') \u00b7 anomalie: '+anom.length+' \u00b7 proposte incarico: '+rep.proposte.length+'</p>';
+  if(rep.aziendaWarn){ h+='<div style="margin:8px 0;padding:9px 12px;border:1px solid #F8CBAD;background:#fdf3ec;border-radius:8px;font-size:13px">\u26a0\ufe0f '+esc(rep.aziendaWarn)+' <label class="toggle" style="margin-left:8px"><input type="checkbox" id="impConfAzienda"> Confermo l\u0027import in questa azienda</label></div>'; }
+
+  // 1) eventi riconosciuti
+  h+='<h4 style="color:var(--blu);margin:14px 0 6px">1 \u00b7 Eventi riconosciuti ('+(ok.length+dupe.length)+')</h4>';
+  if(ok.length+dupe.length){
+    h+='<div class="tablebox"><table><thead><tr><th>Imp.</th><th>Persona</th><th>Corso (chiave)</th><th>Data</th><th>Note</th></tr></thead><tbody>';
+    ok.concat(dupe).forEach(function(e){ h+='<tr><td><input type="checkbox" data-ev-idx="'+e.idx+'" '+(e.stato==="dupe"?"":"checked")+'></td><td>'+nm(e)+'</td><td>'+corsoLab(e.map)+'</td><td>'+esc(e.data||"\u2014")+'</td><td>'+(e.stato==="dupe"?'<span class="muted">'+esc(e.motivo)+'</span>':'')+'</td></tr>'; });
+    h+='</tbody></table></div>';
+  } else h+='<p class="muted">Nessuno.</p>';
+
+  // 2) corsi da mappare
+  h+='<h4 style="color:var(--blu);margin:16px 0 6px">2 \u00b7 Corsi da mappare ('+dam.length+')</h4>';
+  if(dam.length){
+    var distinti={}; dam.forEach(function(e){distinti[e.tipoRaw]=(distinti[e.tipoRaw]||0)+1;});
+    h+='<p class="muted" style="font-size:12px">Scegli la figura: la scelta viene memorizzata e riusata ai prossimi import.</p><div class="tablebox"><table><thead><tr><th>Corso nel file</th><th>Occorrenze</th><th>Mappa a figura</th></tr></thead><tbody>';
+    Object.keys(distinti).forEach(function(raw){ h+='<tr><td>'+esc(raw)+'</td><td>'+distinti[raw]+'</td><td><select class="t" data-map-sel data-raw="'+esc(raw)+'"><option value="">\u2014 non importare \u2014</option>'+figOpts+'</select></td></tr>'; });
+    h+='</tbody></table></div>';
+  } else h+='<p class="muted">Nessuno.</p>';
+
+  // 3) anomalie da confermare
+  h+='<h4 style="color:var(--blu);margin:16px 0 6px">3 \u00b7 Anomalie da confermare ('+anom.length+')</h4>';
+  if(anom.length){
+    h+='<p class="muted" style="font-size:12px">Spunta per importare comunque questa persona e i suoi eventi.</p><div class="tablebox"><table><thead><tr><th>Conferma</th><th>Persona</th><th>CF</th><th>Anomalie</th></tr></thead><tbody>';
+    anom.forEach(function(p){ h+='<tr><td><input type="checkbox" data-anom-pk="'+esc(p.pk)+'"></td><td>'+nm(p)+'</td><td>'+esc(p.cf||"\u2014")+'</td><td><span class="muted">'+p.warn.map(esc).join("; ")+'</span></td></tr>'; });
+    h+='</tbody></table></div>';
+  } else h+='<p class="muted">Nessuna.</p>';
+
+  // 4) proposte incarico
+  h+='<h4 style="color:var(--blu);margin:16px 0 6px">4 \u00b7 Proposte di incarico da confermare ('+rep.proposte.length+')</h4>';
+  if(rep.proposte.length){
+    h+='<p class="muted" style="font-size:12px">L\u0027evento implica una figura non ancora presente per la persona. Spunta per creare l\u0027incarico (con scadenzario).</p><div class="tablebox"><table><thead><tr><th>Crea</th><th>Persona</th><th>Figura</th><th>Eventi</th></tr></thead><tbody>';
+    rep.proposte.forEach(function(pr){ h+='<tr><td><input type="checkbox" data-prop-key="'+esc(pr.pk+"::"+pr.figura)+'"></td><td>'+nm(pr)+'</td><td>'+esc(pr.label)+(pr.sottotipo?' <span class="muted">\u00b7 '+esc(pr.sottotipo)+'</span>':'')+'</td><td>'+pr.count+'</td></tr>'; });
+    h+='</tbody></table></div>';
+  } else h+='<p class="muted">Nessuna.</p>';
+
+  h+='</div>';
+  v.innerHTML=h;
+  $("impAnnulla").onclick=function(){ST.imp=null;render();};
+  $("impApplica").onclick=applicaImport;
+}
+
 function renderDati(v){
   var rs=(ST.az.anagrafica.ragioneSociale||"azienda");
   var slug=rs.replace(/[^\w]+/g,"_");
