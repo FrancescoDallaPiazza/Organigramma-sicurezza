@@ -472,7 +472,7 @@ const badge=k=>{const S=STATI[k]||STATI.na;return `<span class="badge ${S.c}">${
 const $=id=>document.getElementById(id);
 function render(){
   if(ST.az&&!ST.az.documenti)ST.az.documenti=[];if(ST.az&&!ST.az.persone)ST.az.persone=[];if(ST.az){ST.az.anagrafica.piva=ST.az.anagrafica.piva||"";ST.az.anagrafica.cf=ST.az.anagrafica.cf||"";}migraPersone();
-  $("app").innerHTML=headerHTML()+(ST.az?tabsHTML()+`<div class="main"><div class="wrap" id="view"></div></div>`:emptyHTML())+`<div class="foot">Overall Group S.r.l. · v2.14 · Dati salvati in questo browser (localStorage) · catalogo da ASR26-TabellaCorsi.xlsx (${CATALOGO.length} corsi)</div>`;
+  $("app").innerHTML=headerHTML()+(ST.az?tabsHTML()+`<div class="main"><div class="wrap" id="view"></div></div>`:emptyHTML())+`<div class="foot">Overall Group S.r.l. · v2.15 · Dati salvati in questo browser (localStorage) · catalogo da ASR26-TabellaCorsi.xlsx (${CATALOGO.length} corsi)</div>`;
   bindHeader();if(ST.az){bindTabs();renderView()}else bindEmpty();
 }
 function headerHTML(){
@@ -560,13 +560,7 @@ function syncLavIniziale(inc){
   inc.dataIniziale=lavInizialeAssolta(inc)?(sp.data||(m.generale&&m.generale.data)||""):"";
   inc.dataAggiornamento=sp.aggiornamento||"";
 }
-function lavModEso(inc,key){
-  var M=MAP.lavoratore;if(!M)return [];
-  var id=key==="generale"?M.generale:((M.var&&inc.variante&&M.var[inc.variante])||M.ini);
-  var c=id&&catById(id);
-  if(c&&c.esonero)return c.esonero.split("\n").map(function(s){return s.replace(/^[\-•·\s]+/,"").trim()}).filter(Boolean);
-  return [];
-}
+function lavModEso(inc,key){return creditiRuoloInfo(key==="generale"?"lavGen":"lavSpec");}
 function syncModuli(inc){if(inc.tipo==="datoreRspp")syncRsppIniziale(inc);else if(inc.tipo==="lavoratore")syncLavIniziale(inc);}
 function esoOk(e){return !!(e&&e.flag&&!(e.derivT==="Tstar"&&e.altraAzienda));}
 const CREDITI_RUOLI={
@@ -621,6 +615,20 @@ function derivModHTML(inc,col,mod){
   var f=fontiCredito(inc,col);if(!f.length)return "";
   var btns=f.map(function(x){return `<button class="t" data-act="applyDeriv" data-src="${x.srcTipo}" data-stato="${x.stato}" data-mod="${mod}" style="cursor:pointer;border-color:var(--blu);color:var(--blu);font-weight:600;font-size:11px">Credito da ${esc(x.srcLabel)}${x.stato==="Tstar"?" (stessa az.)":""}</button>`;}).join(" ");
   return `<div style="margin-top:6px;padding:6px 8px;border:1px dashed var(--blu);border-radius:6px;background:#f3f6fc"><div style="font-size:11px;color:var(--blu);margin-bottom:4px">Credito disponibile (Allegato III):</div><div style="display:flex;gap:5px;flex-wrap:wrap">${btns}</div></div>`;
+}
+const ROLE_LABELS={rspp:"RSPP",aspp:"ASPP",cspcse:"CSP/CSE (coordinatore)",dlRspp:"DL-RSPP (art. 34)",dl:"Datore di lavoro (art. 37)",rls:"RLS",dirigente:"Dirigente",preposto:"Preposto",lavGen:"Lavoratore Generale",lavSpec:"Lavoratore Specifica"};
+function creditiRuoloInfo(col){
+  var T=[],Ts=[];
+  Object.keys(CREDITI_RUOLI).forEach(function(r){var st=CREDITI_RUOLI[r][col];if(st==="T")T.push(ROLE_LABELS[r]||r);else if(st==="Tstar")Ts.push(ROLE_LABELS[r]||r);});
+  var out=[];
+  if(T.length)out.push("Credito totale (Allegato III ASR) se la persona è anche: "+T.join(", "));
+  if(Ts.length)out.push("Credito totale solo stessa azienda (T*) se anche: "+Ts.join(", "));
+  return out;
+}
+function figEsoSources(inc){
+  var col=COL_OF[inc.tipo];
+  if(col)return creditiRuoloInfo(col);
+  return resolve(inc.tipo,inc.variante).eso||[];
 }
 function moduliRsppHTML(inc){
   ensureRsppModuli(inc);
@@ -921,7 +929,7 @@ function incaricoHTML(inc){
     ${T.baseIndiv?baseIndivHTML(inc):""}
     ${T.nomina?`<div style="max-width:320px;margin-top:8px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><label class="f">Nomina/Designazione</label>${badge(sn.key)}</div>${hdate("dataNomina",inc.dataNomina)}</div>`:""}
     ${(inc.tipo!=="datoreRspp"&&inc.tipo!=="lavoratore")?`<label class="toggle" style="margin-top:9px"><input type="checkbox" data-fld="esoneroFlag" ${eso?"checked":""}> Esonero / credito sulla formazione iniziale</label>
-    ${eso?`<div class="esobox"><b>Possibili fonti di esonero per ${esc(T.label)}:</b>${R.eso?`<ul>${R.eso.map(e=>`<li>${esc(e)}</li>`).join("")}</ul>`:`<div class="muted" style="margin-top:4px">Nessuna fonte di esonero codificata nel catalogo per questa figura.</div>`}
+    ${eso?`<div class="esobox"><b>Possibili fonti di esonero per ${esc(T.label)}:</b>${figEsoSources(inc).length?`<ul>${figEsoSources(inc).map(e=>`<li>${esc(e)}</li>`).join("")}</ul>`:`<div class="muted" style="margin-top:4px">Nessuna fonte di esonero per questa figura.</div>`}
         <div style="margin-top:8px;padding:8px 10px;border:1px solid var(--bordi);border-radius:7px;background:#fff"><div style="font-weight:600;font-size:12.5px;margin-bottom:5px">Evidenza dell’esonero/credito (attestato che dà il credito)</div>${(inc.esonero&&inc.esonero.file)?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="badge b-ok">✔ Allegato</span> <a href="${inc.esonero.file.dataUrl}" download="${esc(inc.esonero.file.name)}" style="font-size:12px">${esc(inc.esonero.file.name)}</a> <button class="ico-btn ico-red" data-act="rmEso" title="Rimuovi allegato">🗑</button></div>`:`<div><span class="badge b-mancante">COSA DA FARE: allegare evidenza</span> <span class="muted" style="font-size:11.5px">→ confluisce nel cruscotto</span></div><input type="file" data-fld="esoFile" accept="application/pdf,image/*" style="margin-top:6px;font-size:12px">`}</div>${(inc.esonero&&inc.esonero.derivT==="Tstar")?`<label class="toggle" style="margin-top:7px"><input type="checkbox" data-fld="esoAltraAz" ${inc.esonero.altraAzienda?"checked":""}> Qualifica conseguita in <b>altra azienda</b> (il credito T* decade)</label>`:""}${(inc.esonero&&inc.esonero.flag&&!esoOk(inc.esonero))?`<div class="muted" style="margin-top:6px;color:var(--rossoT);font-weight:600">Credito non valido (altra azienda): l'iniziale risulta da svolgere.</div>`:""}<label class="f" style="margin-top:7px">Nota (fonte applicata):</label><textarea data-fld="esoneroNota" rows="2" placeholder="es. Corso Acc. 21/12/2011 — attestato n. …">${esc(inc.esonero.nota||"")}</textarea>
         <div class="muted" style="margin-top:5px">Con esonero attivo: iniziale assolta, prerequisito non richiesto; resta lo scadenzario dell'aggiornamento (inserisci la data dell'ultimo aggiornamento per calcolarlo).</div></div>`:""}`:""}
     ${(inc.tipo!=="datoreRspp"&&inc.tipo!=="lavoratore")?`<hr style="border:none;border-top:1px solid var(--bordi);margin:13px 0 11px">`:""}
