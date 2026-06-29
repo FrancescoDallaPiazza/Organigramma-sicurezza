@@ -107,45 +107,112 @@ Due **segnali aggiuntivi**, indipendenti dallo stato base:
 
 ## 6. Esoneri / crediti (oggetto di prima classe)
 
-Definiti dalla colonna *Formazione pregressa/esoneri*. Regola corretta:
+Gli esoneri/crediti sono di **prima classe**. Si dividono in **due famiglie**, da tenere distinte nel motore (oggi sono mischiate nel testo libero della colonna *Formazione pregressa/esoneri* del catalogo):
 
-- **La persona ha esonero sull'iniziale** →
-  - iniziale = `Assolto per credito/esonero` (non `Mancante`);
-  - **prerequisito NON richiesto** → nessun flag "propedeutico mancante";
-  - resta **solo lo scadenzario dell'aggiornamento** (il credito copre l'iniziale, **non** azzera la periodicità).
-- **La persona NON ha esonero** →
-  - l'iniziale richiede l'evidenza (data), altrimenti `Mancante`;
-  - **qui** scatta il controllo del prerequisito: se manca (corso non svolto e non creditato) → flag `Propedeutico mancante`.
+- **Famiglia 1 — pregresso normativo.** Un corso del vecchio Accordo credita il corrispondente corso ASR. È testo del catalogo (`record.esonero`), già reso come fonti nell'helper. Esempi: Lavoratori 2011→Lav; Dirigenti 2011→Dirigente (non Cantieri); Preposto 2011→Preposto (se >2 anni → agg. ≤24/05/2026); attrezzature Acc. 22/02/2012→attrezzature; DL ASR-conforme ≤24/05/2025→DL; DDL-RSPP basso 16h→Comune; DDL-RSPP medio 32h/alto 48h **stesso ATECO**→integrativo.
+- **Famiglia 2 — credito tra ruoli (Allegato III ASR 17/04/2025).** Possedere il ruolo X credita verso il ruolo Y. È la matrice di §6.1, **ora codificata** (prima solo poche derivazioni verso DL).
 
-> Correzione registrata: il prerequisito (propedeuticità) è richiesto **solo a chi non ha esonero dalla formazione iniziale**. Es.: "preposto formato ma manca formazione lavoratore" genera l'allarme **solo se** quel preposto non è esonerato/creditato sull'iniziale lavoratore.
+Regola di stato invariata (vedi §5): persona **con esonero sull'iniziale** → iniziale `Assolta per credito/esonero`, **prerequisito non richiesto**, resta solo lo scadenzario dell'aggiornamento (il credito copre l'iniziale, non azzera la periodicità).
 
-Trattamento degli esoneri — **scelta A (manuale guidato)**, con poche derivazioni automatiche ovvie. Operativamente:
+---
 
-- sul singolo incarico c'è una spunta **"esonero formazione iniziale"** + campo nota della base;
-- attivando la spunta, l'app mostra a video le **possibili fonti di esonero per quella figura** (vedi §6.1), così la scelta è guidata e non a memoria;
-- alcune derivazioni **role-internal** sono suggerite in automatico (l'utente conferma):
-  - generale lavoratori svolta/creditata → soddisfa la propedeuticità di preposto e degli altri corsi che la richiedono;
-  - ruolo Dirigente presente sulla persona → suggerisce esonero sul corso Datore di lavoro;
-  - ruolo RSPP / ASPP / DL-RSPP / CSP-CSE presente → suggerisce esonero sul corso Datore di lavoro.
-- evoluzione futura: opzione B (derivazione piena codificando tutta la colonna esoneri).
+### 6.1 Famiglia 2 — Matrice credito tra ruoli (Allegato III)
 
-### 6.1 Fonti di esonero per figura (helper guidato)
+Legenda: **T** totale (iniziale assolta) · **T\*** totale **solo se il ruolo-fonte è svolto nella stessa azienda** (vedi D3) · **P** parziale (→ nota, vedi D2) · **F** frequenza (nessun credito) · **—** stesso ruolo / n.a.
 
-Sintesi della colonna *Formazione pregressa/esoneri* del catalogo, raggruppata per figura. È il contenuto che l'app propone quando si attiva la spunta esonero.
+#### Matrice madre (Allegato III, pag. 130) — *possiede ▼ / credito verso ▶*
 
-| Figura / corso iniziale | Iniziale esonerata se… | Testo-fonte nel catalogo |
-|---|---|---|
-| **Datore di lavoro** | già DDL-RSPP, o RSPP (Mod. A+B+C), o ASPP (Mod. A+B), o CSP/CSE; **oppure** corso DL conforme ASR 2025 entro 24/05/2025; **oppure** corso Dirigenti Acc. 2011 | "Credito totale se il DL ha: …" |
-| **DL-RSPP — modulo Comune** | già DDL-RSPP rischio basso 16h | "Credito totale se DDL RSPP r. basso 16 ore" |
-| **DL-RSPP — integrativo di settore** | già DDL-RSPP medio 32h / alto 48h, **con lo stesso ATECO riportato sull'attestato** | "…Attestato deve riportare ATECO …" |
-| **Dirigente** | corso Dirigente Acc. 21/12/2011 (**non** copre il modulo Cantieri) | "Credito totale se Corso Acc 21/12/2011, non per Cantieri" |
-| **Preposto** | corso Preposto Acc. 21/12/2011 (se >2 anni → aggiornarsi entro 24/05/2026) | "Credito totale se Corso Acc 21/12/2011" |
-| **Lavoratore (generale + specifica B/M/A)** | corso Lavoratori Acc. 21/12/2011 | "Credito totale se Corso Acc 21/12/2011" |
-| **RLS (iniziale 32h)** | qualifica CSP/CSE, RSPP o ASPP | "Credito totale se CSP/CSE - RSPP - ASPP" |
-| **Abilitazioni attrezzature** (carrello, PLE, gru, trattori, escavatori) | abilitazione pregressa conforme Acc. 22/02/2012 | "Credito totale se Credito tot. 22/02/2012" |
-| **Antincendio · Primo soccorso · BLSD · RSPP/ASPP prof. · ambienti confinati · lavori in quota · PES/PAV/PEI · carroponte** | nessun esonero codificato nel catalogo (cella vuota) | — |
+| Possiede ▼ | RLS | DL (16h) | Lav. Gen | Lav. Spec | Dirigente | Preposto |
+|---|---|---|---|---|---|---|
+| RSPP (A+B+C)        | T | T | T | T\* | T | T\* |
+| ASPP (A+B)          | T | T | T | T\* | T | T\* |
+| CSP/CSE (coord.)    | T | T | T | T\* | T | T\* |
+| DL-RSPP (art. 34)   | **F** | T | T | T\* | T | T\* |
+| DL (art. 37)        | F | — | T | T\* | T | T\* |
+| RLS                 | — | F | T | F | T | **T** |
+| Lavoratore Generale | F | F | — | F | F | F |
+| Lavoratore Specifica| F | F | — | — | F | F |
+| Dirigente           | F | T | T | T\* | — | T\* |
+| Preposto            | F | F | F | F | F | — |
 
-> Attenzione: l'esonero sull'**aggiornamento** RLS ("se Dirigente/Preposto/Lavoratore") riguarda l'aggiornamento, non l'iniziale → va trattato come nota distinta, non come esonero-iniziale.
+Asimmetrie da non perdere: **DL-RSPP → RLS = F** (essere RSPP di sé stessi non credita l'RLS); **RLS → Preposto = T pieno** (non T\*).
+
+#### Moduli Cantieri / casi senza credito (Allegato III, pag. 131)
+
+| Possiede ▼ | DL mod. cantieri | Dirig. mod. cantieri | Lav. sospetto inquin. | Operatore attrezz. |
+|---|---|---|---|---|
+| RSPP base / ASPP base            | F | F | F | F |
+| RSPP (A+B com.+**B-SP3**+C)      | T | T | F | F |
+| ASPP (A+B com.+**B-SP3**)        | T | T | F | F |
+| CSP/CSE                          | T | T | F | F |
+| DL-RSPP **integrativo 3**        | T | T | F | F |
+| DL cantiere ↔ Dirigente cantiere | T (incrociato) | T (incrociato) | F | F |
+
+Il credito sui Cantieri arriva **solo da chi ha la specializzazione costruzioni** (B-SP3 / integrativo 3). *Sospetto inquinamento* e *operatore attrezzature*: nessun credito da ruoli (attrezzature → solo Famiglia 1, Acc. 22/02/2012). I moduli Cantieri restano *moduli aggiuntivi*, non figure autonome dell'organigramma → derivazione automatica **non** attiva su questi (solo nota), almeno in v2.13.
+
+#### Percorso professionale PARZIALE (Allegato III, pag. 127-129) → **nota, non esonero** (D2)
+
+Crediti **parziali** verso RSPP/ASPP/CSP-CSE/moduli DL-RSPP partendo da moduli A o A+B già svolti (es. *RSPP con solo Mod. A* → credito Modulo giuridico 28h; deve frequentare tecnico 52h + metodologico 16h + pratica 24h). Non rappresentabili con l'esonero binario: l'app li mostra come **nota informativa** ("credito parziale — frequenza dei moduli residui necessaria"), senza attivare l'iniziale-assolta.
+
+---
+
+### 6.2 Sintesi per figura — *iniziale esonerata (TOTALE) se la persona possiede…*
+
+Combina Famiglia 2 (matrice, ruolo nella stessa azienda) + Famiglia 1 *(F1)*. `(*)` = T\*, soggetto a D3.
+
+- **Datore di lavoro 16h** → RSPP · ASPP · CSP/CSE · DL-RSPP · Dirigente(*) · *(F1)* DL ASR-conforme ≤24/05/2025 · Dirigenti 2011
+- **DL-RSPP — Comune 8h** → *(F1)* DDL-RSPP basso 16h · *(P)* RSPP A+B+C
+- **DL-RSPP — integrativo settore** → *(F1)* DDL-RSPP medio/alto **stesso ATECO** · *(P)* CSP/CSE→integr. 3, RSPP→integrativi
+- **Dirigente 12h** → RSPP · ASPP · CSP/CSE · DL-RSPP · DL · RLS(*) · *(F1)* Dirigenti 2011 (**non** Cantieri)
+- **Preposto 12h** → **RLS (pieno)** · RSPP/ASPP/CSP-CSE/DL-RSPP/DL/Dirigente (*) · *(F1)* Preposto 2011 (se >2 anni → agg. ≤24/05/2026)
+- **Lavoratore — Generale 4h** → RSPP · ASPP · CSP/CSE · DL-RSPP · DL · RLS · Dirigente · *(F1)* Lavoratori 2011
+- **Lavoratore — Specifica B/M/A** → RSPP/ASPP/CSP-CSE/DL-RSPP/DL/Dirigente (*) · *(F1)* Lavoratori 2011 — *(RLS e Preposto = frequenza)*
+- **RLS 32h** → **solo** RSPP · ASPP · CSP/CSE *(aggiornamento RLS: esonero distinto se Dirigente/Preposto/Lavoratore — riguarda l'agg., non l'iniziale; resta nota a sé)*
+- **Antincendio · Primo soccorso · BLSD · ambienti confinati · lavori in quota · PES/PAV/PEI · carroponte** → Allegato III non li tratta (regimi DM/IRC dedicati): nessun esonero da ruoli.
+
+---
+
+### 6.3 Decisioni chiuse (D1-D4) e implicazioni dato/UI
+
+**D1 — Split Lavoratore (sì).** L'iniziale lavoratore si scinde in **due righe**, come i due moduli DL-RSPP:
+- *Generale 4h* → una tantum, **nessun aggiornamento = credito permanente**; è anche fonte di propedeuticità (soddisfa per sempre il prerequisito del preposto ecc.);
+- *Specifica B/M/A* (4/8/12h per rischio) → con **aggiornamento 6h/5a**; la scadenza della figura nasce da qui.
+- Esonero/credito **per riga** (non a livello figura). Box "Formazione iniziale — moduli" con le due righe data+attestato proprie. `iniziale assolta` = Generale assolta **e** Specifica assolta (datate+attestate o coperte da esonero).
+
+Modello: `inc.moduli = { generale:{data, file, fileNota, esonero:{flag,nota,file}}, specifica:{variante, data, file, fileNota, esonero:{…}, aggiornamento} }` (parallelo a `datoreRspp`). La variante (basso/medio/alto) resta risolta da rischio azienda (§7), forzabile.
+*Migrazione:* vecchio `inc.dataIniziale`/attestato lavoratore → confluisce in `moduli.specifica`; `moduli.generale` parte **da compilare** (todo). Se sul vecchio incarico c'era l'esonero figura-level con fonte Lavoratori 2011 → si applica a **entrambe** le righe (il credito 2011 copre generale+specifica), modificabile a mano.
+
+**D2 — TOTALE vs PARZIALE (parziale = nota).** L'esonero binario rappresenta **solo il TOTALE**. I casi PARZIALE (§6.1 pag. 127-129) si mostrano come **nota informativa** sull'incarico, senza attivare iniziale-assolta né rimuovere il prerequisito.
+
+**D3 — Clausola "stessa azienda" (T\*) → spunta default-no.** L'app è per-azienda: il ruolo-fonte è di norma svolto **in questa** azienda → T\* vale come T. Sull'esonero la cui fonte è un ruolo **T\*** compare la spunta **"qualifica conseguita in altra azienda"** (default **OFF**). Se attivata → il credito **decade** (serve frequenza): l'iniziale torna `Mancante`/da svolgere e l'app lo segnala. Le fonti **T pieno** (es. RLS→Preposto, ruoli→Lav. Generale) non mostrano la spunta.
+
+**D4 — Opzione B: derivazione automatica dalla matrice (sì), guidata.** Quando una persona ha un ruolo-fonte (incarico nell'azienda) e si apre un incarico-bersaglio con cella **T** (o **T\*** non flaggata altra-azienda), l'app **propone** di attivare l'esonero sull'iniziale del bersaglio, citando la fonte; **l'utente conferma** (mai auto-attivazione silenziosa — coerente §4 import). Estende le derivazioni odierne (solo verso DL) a tutta la matrice (verso Preposto, Dirigente, Lavoratore Gen/Spec, RLS). Le celle **F**, **—**, **P** non generano proposta. Cantieri/attrezzature: nessuna proposta automatica (solo nota).
+
+---
+
+### 6.4 Struttura dati per l'implementazione (Famiglia 2)
+
+Chiavi-ruolo = chiavi TIPI dell'app (allineare in fase di build: rspp/aspp professionista, cspcse, datoreRspp, datore, rls, lavoratore[generale|specifica], dirigente, preposto).
+
+```js
+// Allegato III pag.130 — possiede → { verso: stato }
+// stati: 'T' (totale) | 'Tstar' (totale solo stessa azienda) | 'F' | '-' (na)
+const CREDITI_RUOLI = {
+  rspp:      {rls:'T',  dl:'T', lavGen:'T', lavSpec:'Tstar', dirigente:'T', preposto:'Tstar'},
+  aspp:      {rls:'T',  dl:'T', lavGen:'T', lavSpec:'Tstar', dirigente:'T', preposto:'Tstar'},
+  cspcse:    {rls:'T',  dl:'T', lavGen:'T', lavSpec:'Tstar', dirigente:'T', preposto:'Tstar'},
+  dlRspp:    {rls:'F',  dl:'T', lavGen:'T', lavSpec:'Tstar', dirigente:'T', preposto:'Tstar'},
+  dl:        {rls:'F',  dl:'-', lavGen:'T', lavSpec:'Tstar', dirigente:'T', preposto:'Tstar'},
+  rls:       {rls:'-',  dl:'F', lavGen:'T', lavSpec:'F',     dirigente:'T', preposto:'T'},
+  lavGen:    {rls:'F',  dl:'F', lavGen:'-', lavSpec:'F',     dirigente:'F', preposto:'F'},
+  lavSpec:   {rls:'F',  dl:'F', lavGen:'-', lavSpec:'-',     dirigente:'F', preposto:'F'},
+  dirigente: {rls:'F',  dl:'T', lavGen:'T', lavSpec:'Tstar', dirigente:'-', preposto:'Tstar'},
+  preposto:  {rls:'F',  dl:'F', lavGen:'F', lavSpec:'F',     dirigente:'F', preposto:'-'}
+};
+// D4: propone esonero se cell==='T' || (cell==='Tstar' && !inc.esonero.altraAzienda)
+```
+
+---
 
 ---
 
@@ -174,7 +241,7 @@ Dove il catalogo lascia una scelta, l'app la risolve dall'anagrafica (sempre for
 **A/B — Trattamento esoneri**
 - **A (manuale):** spunta "esonero formazione iniziale" sul singolo incarico + nota della base. Rapido, robusto, decisione caso per caso.
 - **B (derivato):** l'app deduce gli esoneri codificando le regole della colonna (es. ha la generale → preposto creditato; è dirigente → DL creditato), con forzatura manuale.
-- *Proposta:* partire da **A**, con poche derivazioni ovvie automatiche (generale lavoratori → prerequisito preposto/altri); B come evoluzione. **→ scelta: A (manuale guidato) — vedi §6 e §6.1. CHIUSA.**
+- *Proposta originaria:* partire da **A** (manuale guidato), B come evoluzione. **→ Scelta definitiva: opzione B (derivazione piena) guidata — decisioni D1-D4 chiuse (vedi §6). D1 (split Lavoratore) implementata in v2.13; D2-D4 (motore di derivazione tra ruoli, clausola stessa-azienda, parziale=nota) implementate in v2.14. CHIUSA.**
 
 **1 — Punto d'ingresso**
 - persona-first (come l'app attuale) oppure anche modalità "requisito → assegna persona" (comodo per coprire un buco: "chi mi fa l'antincendio?").
@@ -199,7 +266,9 @@ Dove il catalogo lascia una scelta, l'app la risolve dall'anagrafica (sempre for
 
 - **v2.10 (costruita):** **anagrafica persona normalizzata + CF + condivisione su file.** (a) Registry `ST.az.persone[]` con `personaId` sugli incarichi; `inc.persona` mantenuta come label denormalizzata sincronizzata (`migraPersone()` migra le vecchie stringhe in modo non distruttivo, le marca *da rivedere*, e risincronizza le label; idempotente). Identità per **CF** o, in mancanza, `cognome+nome` normalizzati. (b) Inserimento incarico con **Cognome\* / Nome\* + CF facoltativo** (oppure selezione di persona esistente); scheda **Persone** per l'anagrafica. (c) **Motore CF** incorporato (puro, testato): validità + carattere di controllo, data/sesso, **comune/stato** via tabella **Belfiore** incorporata (~10.000 codici, soppressi inclusi), **omocodia** (cifre L–V), **cross-check** cognome/nome → avviso **non bloccante**. (d) **Condivisione — Opzione A**: salvataggio/apertura diretta su file `.json` (File System Access API, Chrome/Edge) **per azienda** in cartella condivisa, busta `{schemaVersion, updatedAt, updatedBy, az}`, **avviso di conflitto** se il file è stato modificato da altri dopo l'ultimo caricamento; fallback Esporta/Importa JSON (ora include `persone`). **(e) DL-RSPP — aggiornamento per modulo:** ogni modulo (Comune, integrativo) ha la propria data di aggiornamento; la scadenza dell'aggiornamento della figura è calcolata dal **modulo con la data più vecchia** (`rsppBaseScad`), con riferimento per modulo = `aggiornamento || data iniziale`. Sparisce il campo aggiornamento unico di figura per il DL-RSPP (le altre figure lo mantengono). Footer → v2.10.
 - **v2.11 (costruita) — Import libretti formativi (step 1).** Nuova scheda **📥 Importa**: carica un export Excel «Elenco Visite/Formazioni» (una riga = persona + evento). **Chiave comune dei corsi** (`IMPORTCORE.mapCorso`): ogni «Tipo» a testo libero è normalizzato e risolto in chiave stabile `figura:sottotipo:natura` (+ `corsoId` di catalogo quando esiste) via alias/euristiche + **mapping appreso** persistito (`org81v2:corsoMap`) per i non riconosciuti. Modello **`persona.formazioni[]`** (libretto): voci `{key,corsoId,figura,sottotipo,natura,data,tipoRaw,fonte}`. Import **a staging con report a 4 sezioni** (eventi riconosciuti · corsi da mappare · anomalie da confermare · proposte di incarico da confermare): **non scrive nulla** finché non confermi. Dedup persone per **CF** (+ cross-check nome/nascita); società del file ≠ azienda → **avviso unico** con conferma; eventi già in libretto marcati duplicati. Le proposte confermate creano l'incarico e ne impostano l'evidenza (iniziale/aggiornamento, data più recente). Validato sul file reale: 27 eventi / 11 persone, 14/14 «Tipo» mappati. **Step 2 (prossimo):** vista libretto stampabile + export .docx Overall. Footer → v2.11.
-- **v2.12 (costruita) — Libretto formativo per persona (stampa/PDF + Word, step 2).** Dalla scheda **👥 Persone**, ogni persona ha due pulsanti: **📄 Libretto (stampa / PDF)** e **⬇️ Word (.doc)**. `librettoData(pid)` assembla: anagrafica persona (nome, CF, **nato a/il + sesso derivati dal CF**), **Posizioni e formazione obbligatoria** dagli incarichi (figura+variante, nomina/designazione con eventuale data, formazione iniziale, ultimo aggiornamento, scadenza e **stato** riusando `statoForm`/`STATI`; per il **DL-RSPP** iniziale = modulo con data più recente, aggiornamento = aggiornamento di modulo più recente), e il **Libretto eventi** da `persona.formazioni[]` (corso = `tipoRaw`, data, fonte; ordinati per data). Output **brandizzato Overall** (logo orizzontale embedded base64, palette #1F3864/#2E5496, testata #404040, righe alternate, semaforo stato verde/giallo/rosso) in formato **A4** con footer dati Overall (OVERALL GROUP S.R.L., P.IVA 04534450236). La **stampa** apre una finestra dedicata e lancia `window.print()` (Salva come PDF dal browser); l’**export Word** è un **HTML-Word `.doc`** (`application/msword`) apribile e ri-salvabile in `.docx` da Word — scelta leggera per non appesantire il file standalone con una libreria docx. Note: il libretto è un riepilogo gestionale, non sostituisce gli attestati originali del fascicolo. Footer → v2.12.
+- **v2.12 (costruita) — Libretto formativo per persona (stampa/PDF + Word, step 2).** Dalla scheda **👥 Persone**, ogni persona ha due pulsanti: **📄 Libretto (stampa / PDF)** e **⬇️ Word (.doc)**. `librettoData(pid)` assembla: anagrafica persona (nome, CF, **nato a/il + sesso derivati dal CF**), **Posizioni e formazione obbligatoria** dagli incarichi (figura+variante, nomina/designazione con eventuale data, formazione iniziale, ultimo aggiornamento, scadenza e **stato** riusando `statoForm`/`STATI`; per il **DL-RSPP** iniziale = modulo con data più recente, aggiornamento = aggiornamento di modulo più recente), e il **Libretto eventi** da `persona.formazioni[]` (corso = `tipoRaw`, data, fonte; ordinati per data). Output **brandizzato Overall** (logo orizzontale embedded base64, palette #1F3864/#2E5496, testata #404040, righe alternate, semaforo stato verde/giallo/rosso) in formato **A4** con footer dati Overall (OVERALL GROUP S.R.L., P.IVA 04534450236). La **stampa** apre una finestra dedicata e lancia `window.print()` (Salva come PDF dal browser); l’**export Word** è un **HTML-Word `.doc`** (`application/msword`) apribile e ri-salvabile in `.docx` da Word — scelta leggera per non appesantire il file standalone con una libreria docx. Note: il libretto è un riepilogo gestionale, non sostituisce gli attestati originali del fascicolo. Footer → v2.12. 
+- **v2.13 (costruita) — Split Lavoratore (D1) + rifondazione esoneri su Allegato III (mappa §6).** La formazione iniziale del **Lavoratore** passa a **due moduli** come il DL-RSPP: *Generale 4h* (una tantum, **credito permanente**, fonte di propedeuticità) + *Specifica B/M/A* (con **aggiornamento 6h/5 anni**; la **scadenza della figura nasce dalla Specifica**). **Esonero/credito per-riga** (non più a livello figura), evidenza per modulo, todo cruscotto distinti per Generale/Specifica. **Migrazione automatica**: il vecchio iniziale lavoratore confluisce nella *Specifica*; un esonero figura-level pregresso (Lavoratori 2011) viene applicato a **entrambe** le righe e l'esonero di figura ritirato. `prereqOk` reso **module-aware** (Generale svolta/creditata soddisfa la propedeuticità del preposto). Nuove funzioni `ensureLavModuli/lavInizialeAssolta/syncLavIniziale/lavModEso/moduliLavHTML` + dispatcher `syncModuli`. Validazione: `node --check` sul blocco app + harness **23/23** (stato, scadenza 2028, scaduto, verifica, migrazione, propedeuticità, idempotenza). Il **§6** è riscritto: esoneri in **due famiglie** (pregresso normativo / credito tra ruoli) con **matrice Allegato III** (`CREDITI_RUOLI`), clausola stessa-azienda (T*) e parziale=nota — **D1-D4 chiuse**. Footer → v2.13. **Prossimo (v2.14):** motore di **derivazione automatica tra ruoli** (D4) + spunta "qualifica conseguita in altra azienda" (D3) + nota PARZIALE (D2), da costruire e testare come unità unica. 
+- **v2.14 (costruita) — Motore di derivazione tra ruoli (D2+D3+D4).** Codificata la **matrice Allegato III** (`CREDITI_RUOLI`) con mappe `ROLE_OF`/`COL_OF` sulle figure dell'app (CSP/CSE non presente come figura → omesso; RSPP/ASPP = designazione). **D4 — derivazione automatica guidata**: su Datore/Dirigente/Preposto/RLS e sui due moduli del Lavoratore, se la persona possiede un altro ruolo che dà credito **T/T\*** verso quell'iniziale, l'app mostra un **banner di proposta** con pulsante *Applica* (mai automatico); l'esonero applicato registra `derivT`/`derivFrom`. **D3 — clausola stessa-azienda**: sugli esoneri **T\*** compare la spunta *"qualifica conseguita in altra azienda"* (default off); se attivata il credito **decade** — nuovo `esoOk()` (usato in `lavInizialeAssolta`/`rsppInizialeAssolta`/`statoForm`/`prereqOk`) riporta l'iniziale a *mancante* con avviso. **D2 — PARZIALE**: solo i crediti **TOTALE** (T/T\*) generano proposta; i percorsi professionali parziali restano nota (nessuna proposta). Nuove funzioni `esoOk/ruoloAcquisito/fontiCredito/applyDeriv/derivBannerHTML/derivModHTML` + handler `applyDeriv`/`esoAltraAz`/`modEsoAltraAz`. Validazione: `node --check` + harness **22/22** (matrice, decadimento T\*, proposte, apply, gating per ruolo non acquisito, isolamento per-persona) e **regressione 23/23** sui test v2.13. Footer → v2.14.
 
 - **v1 (fatto):** app figura-level con un solo periodo di aggiornamento per ruolo. Due forme: artifact React (`window.storage`) e file HTML standalone offline (`localStorage`). Catalogo periodi allineato a `checkupformazione81/references/percorsi-formativi.md`.
 - **v2 (costruita):** rifondazione su **catalogo corsi** (questo documento). File `organigramma-sicurezza-81-v2.html` (standalone, localStorage). Include Fascicolo documentale e le logiche di §11.
