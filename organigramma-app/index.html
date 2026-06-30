@@ -53,7 +53,7 @@
   .iref{margin-top:8px;font-size:11.5px;color:var(--tenue);display:flex;gap:6px;align-items:flex-start}
   .esobox{margin-top:8px;background:#fff;border:1px solid var(--bordi);border-radius:6px;padding:8px 10px;font-size:12px}
   .esobox ul{margin:4px 0 0;padding-left:18px}.esobox li{margin:2px 0}
-  .ico-btn{background:none;border:none;color:var(--blu);padding:3px;display:inline-flex;align-items:center}.ico-red{color:var(--rossoT)}
+  .ico-btn{background:none;border:none;color:var(--blu);padding:3px;display:inline-flex;align-items:center}.inc .caret{cursor:pointer;font-size:13px;padding:0 4px;line-height:1}.inc.collapsed>:not(.inc-top){display:none!important}.orgnav{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 14px;position:sticky;top:0;background:#fff;padding:7px 0;z-index:5;border-bottom:1px solid var(--bordi)}.orgnav button{cursor:pointer;font-size:12px;padding:4px 9px;border:1px solid #c9d8ec;background:#eef3fa;color:var(--blu);border-radius:7px;font-weight:600;white-space:nowrap}.orgnav button:hover{background:#dfe9f6}.ico-red{color:var(--rossoT)}
   .muted{color:var(--tenue);font-size:12px}
   .chip{background:var(--blu);color:#fff;padding:2px 9px;border-radius:5px;font-size:12px;font-weight:700}
   .chipN{background:var(--tenue)}
@@ -412,6 +412,8 @@ const daysB=(a,b)=>Math.round((a-b)/86400000);
 
 /* ===================== Stato ===================== */
 const ST={idx:[],reg:{},sel:null,az:null,tab:"cruscotto",soglia:90};
+let SEDI=[]; // ponytail: rubrica sedi in-sessione (no localStorage); persisti su K_SEDI se serve lookup multi-sessione
+const COLL=new Set(); // ponytail: stato UI compressione card, effimero (non persistito)
 const mesiTipo=t=>{const o=ST.reg[t];if(o&&o.mesi!==undefined)return o.mesi;return resolve(t).mesi};
 const mesiInc=inc=>{const o=ST.reg[inc.tipo];if(o&&o.mesi!==undefined)return o.mesi;return resolve(inc.tipo,inc.variante).mesi};
 const saveAz=()=>{if(ST.az)ls(kAz(ST.az.id),ST.az)};
@@ -472,7 +474,7 @@ const badge=k=>{const S=STATI[k]||STATI.na;return `<span class="badge ${S.c}">${
 const $=id=>document.getElementById(id);
 function render(){
   if(ST.az&&!ST.az.documenti)ST.az.documenti=[];if(ST.az&&!ST.az.persone)ST.az.persone=[];if(ST.az){ST.az.anagrafica.piva=ST.az.anagrafica.piva||"";ST.az.anagrafica.cf=ST.az.anagrafica.cf||"";}migraPersone();
-  $("app").innerHTML=headerHTML()+(ST.az?tabsHTML()+`<div class="main"><div class="wrap" id="view"></div></div>`:emptyHTML())+`<div class="foot">Overall Group S.r.l. · v2.15 · Dati salvati in questo browser (localStorage) · catalogo da ASR26-TabellaCorsi.xlsx (${CATALOGO.length} corsi)</div>`;
+  $("app").innerHTML=headerHTML()+(ST.az?tabsHTML()+`<div class="main"><div class="wrap" id="view"></div></div>`:emptyHTML())+`<div class="foot">Overall Group S.r.l. · v2.17 · Dati salvati in questo browser (localStorage) · catalogo da ASR26-TabellaCorsi.xlsx (${CATALOGO.length} corsi)</div>`;
   bindHeader();if(ST.az){bindTabs();renderView()}else bindEmpty();
 }
 function headerHTML(){
@@ -886,6 +888,8 @@ function renderOrg(v){
   const exclNote=excl.size?`<div class="muted" style="flex-basis:100%;margin-top:4px">⚠️ Non disponibili (incompatibili con la configurazione RSPP attuale): ${[...excl].map(k=>TIPI[k].label).join(", ")}.</div>`:"";
   const persOpts=personeList().map(p=>`<option value="${p.id}">${esc(personaLabel(p))}${p.cf?" · "+esc(p.cf):""}</option>`).join("");
   // raggruppo incarichi per categoria>tipo
+  const navBtns=(ST.az.incarichi||[]).map(inc=>`<button data-goto="${inc.id}" title="${esc(inc.persona)}">${esc(TIPI[inc.tipo]?TIPI[inc.tipo].label:inc.tipo)} · ${esc((inc.persona||"").split(" ")[0])}</button>`).join("");
+  const navHTML=navBtns?`<div class="orgnav">${navBtns}</div>`:"";
   let body="";
   CAT_ORDER.forEach(cat=>{
     const incsCat=(ST.az.incarichi||[]).filter(i=>TIPI[i.tipo]&&TIPI[i.tipo].cat===cat);
@@ -909,6 +913,7 @@ function renderOrg(v){
       <button class="btn btn-p" id="addInc">＋ Aggiungi incarico</button>
       ${exclNote}
     </div>
+    ${navHTML}
     ${body||`<div class="empty">Organigramma vuoto. Aggiungi il primo incarico: scegli un ruolo (es. Datore di lavoro, Preposto, Addetto antincendio) e indica la persona.</div>`}`;
   $("addInc").onclick=()=>{const tk=$("addTipo").value;let pid,plabel;const sel=$("addPers").value;if(sel&&sel!=="__new__"){const pe=personaById(sel);if(!pe){alert("Persona non trovata.");return}pid=pe.id;plabel=personaLabel(pe);}else{const cog=($("addCognome").value||"").trim(),nom=($("addNome").value||"").trim(),cf=CF.pulisci($("addCF").value);if(!cog||!nom){alert("Cognome e Nome sono obbligatori.");return}const pe=findOrCreatePersona({cognome:cog,nome:nom,cf});pid=pe.id;plabel=personaLabel(pe);}
     const T=TIPI[tk];let variante="";if(T.varianti){if(T.varAuto==="rischio"){const r=(ST.az.anagrafica.rischio||"").toLowerCase();variante=r.startsWith("b")?"basso":r.startsWith("a")?"alto":"medio"}else if(T.varAuto==="addetti"){variante=(Number(ST.az.anagrafica.nAddetti)>50)?"o50":"f50"}else if(T.varAuto==="ateco"){variante=modIntegrativoAteco(ST.az.anagrafica.ateco)||"comune"}else variante=T.varianti[0].id}
@@ -919,8 +924,8 @@ function incaricoHTML(inc){
   const T=TIPI[inc.tipo];if(!T)return "";if(inc.tipo==="datoreRspp"){ensureRsppModuli(inc);syncRsppIniziale(inc);}else if(inc.tipo==="lavoratore"){ensureLavModuli(inc);syncLavIniziale(inc);}const R=resolve(inc.tipo,inc.variante);const mesi=mesiInc(inc);const sn=statoNom(inc);const sf=statoForm(inc);const pf=prereqFlag(inc);const eso=inc.esonero&&inc.esonero.flag;const att=inc.attestato||{file:null,nota:""};
   const varSel=(T.varianti&&inc.tipo!=="datoreRspp")?`<select class="t" data-fld="variante" style="width:auto">${T.varianti.map(o=>`<option value="${o.id}" ${o.id===inc.variante?"selected":""}>${o.label}</option>`).join("")}</select>`:"";
   const modTxt=[R.mod.a?"Aula":"",R.mod.v?"VC":"",R.mod.e?"E-learning":""].filter(Boolean).join(" · ");
-  return `<div class="inc" data-i="${inc.id}">
-    <div class="inc-top"><span class="pers">${esc(inc.persona)}</span>${varSel}${inc.tipo==="datoreRspp"?rsppHint(inc):""}
+  return `<div class="inc${COLL.has(inc.id)?" collapsed":""}" data-i="${inc.id}">
+    <div class="inc-top"><button class="ico-btn caret" data-act="toggleInc" title="Comprimi/espandi">${COLL.has(inc.id)?"▸":"▾"}</button><span class="pers">${esc(inc.persona)}</span>${varSel}${inc.tipo==="datoreRspp"?rsppHint(inc):""}
       <input class="t" style="flex:1;min-width:140px;font-size:12.5px" placeholder="dettaglio (es. tipo attrezzatura)…" value="${esc(inc.dettaglio)}" data-fld="dettaglio">
       ${pf?`<span class="badge b-mancante">Prereq: ${esc(pf)}</span>`:""}
       ${R.trans?`<span class="badge b-info">Transitoria ${fmtISO(R.trans)}</span>`:""}
@@ -968,6 +973,8 @@ function syncDLDoc(inc){
 }
 function findInc(id){return ST.az.incarichi.find(i=>i.id===id)}
 function bindInc(){
+  document.querySelectorAll('[data-act="toggleInc"]').forEach(b=>b.onclick=()=>{const card=b.closest(".inc");const id=card.dataset.i;if(COLL.has(id)){COLL.delete(id);card.classList.remove("collapsed");b.textContent="▾";}else{COLL.add(id);card.classList.add("collapsed");b.textContent="▸";}});
+  document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>{const id=b.dataset.goto;const card=document.querySelector('.inc[data-i="'+id+'"]');if(!card)return;COLL.delete(id);card.classList.remove("collapsed");const c=card.querySelector('[data-act="toggleInc"]');if(c)c.textContent="▾";card.scrollIntoView({behavior:"smooth",block:"start"});});
   document.querySelectorAll('[data-act="delInc"]').forEach(b=>b.onclick=()=>{const id=b.closest(".inc").dataset.i;if(confirm("Rimuovere questo incarico?")){ST.az.incarichi=ST.az.incarichi.filter(i=>i.id!==id);saveAz();render()}});document.querySelectorAll('[data-act="rmAtt"]').forEach(b=>b.onclick=()=>{const id=b.closest(".inc").dataset.i;const inc=findInc(id);if(inc.attestato)inc.attestato.file=null;saveAz();render()});document.querySelectorAll('[data-act="rmEso"]').forEach(b=>b.onclick=()=>{const id=b.closest(".inc").dataset.i;const inc=findInc(id);if(inc.esonero)inc.esonero.file=null;saveAz();render()});document.querySelectorAll('[data-act="rmModEso"]').forEach(b=>b.onclick=()=>{const id=b.closest(".inc").dataset.i;const inc=findInc(id);const mod=b.dataset.mod;if(inc.moduli&&inc.moduli[mod]&&inc.moduli[mod].esonero)inc.moduli[mod].esonero.file=null;saveAz();render()});document.querySelectorAll('[data-act="rmMod"]').forEach(b=>b.onclick=()=>{const id=b.closest(".inc").dataset.i;const inc=findInc(id);const mod=b.dataset.mod;if(inc.moduli&&inc.moduli[mod])inc.moduli[mod].file=null;saveAz();render()});document.querySelectorAll('[data-act="applyDeriv"]').forEach(b=>b.onclick=()=>{const id=b.closest(".inc").dataset.i;const inc=findInc(id);applyDeriv(inc,b.dataset.src,b.dataset.stato,b.dataset.mod||null);saveAz();render()});
   document.querySelectorAll(".inc [data-fld]").forEach(el=>{
     const id=el.closest(".inc").dataset.i;const inc=findInc(id);const fld=el.dataset.fld;
@@ -981,17 +988,66 @@ function bindInc(){
 
 /* -------- Anagrafica -------- */
 function renderAnag(v){
-  const a=ST.az.anagrafica;const atecoOpts=Object.keys(ALLEGATO_IV).sort().map(d=>`<option value="${d} — ${esc(ALLEGATO_IV[d][2])} · ${ALLEGATO_IV[d][1]}">`).join("");
+  const a=ST.az.anagrafica;ensureAnagSedi(a);const atecoOpts=Object.keys(ALLEGATO_IV).sort().map(d=>`<option value="${d} — ${esc(ALLEGATO_IV[d][2])} · ${ALLEGATO_IV[d][1]}">`).join("");
   const F=(label,k,type,opts)=>opts?`<div class="field"><label class="f">${label}</label><select class="t" data-k="${k}">${opts.map(o=>`<option ${a[k]===o?"selected":""}>${o}</option>`).join("")}</select></div>`:`<div class="field"><label class="f">${label}</label><input class="t" type="${type||"text"}" data-k="${k}" value="${esc(a[k])}"></div>`;
   v.innerHTML=`<div style="max-width:560px"><h3 class="sec">Anagrafica azienda</h3>
     ${F("Ragione sociale","ragioneSociale")}${F("Partita IVA","piva")}${F("Codice fiscale azienda","cf")}<div class="field"><label class="f">Codice ATECO * <span class="muted" style="font-weight:400">(cerca per codice o attività)</span></label><input class="t" data-k="ateco" list="atecoList" autocomplete="off" placeholder="es. 56 oppure «ristorazione»…" value="${esc(a.ateco)}"><datalist id="atecoList">${atecoOpts}</datalist></div>
     ${F("Livello di rischio (auto da ATECO — override per DVR)","rischio",null,["Basso","Medio","Alto"])}
     <div style="margin:-2px 0 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">${rischioPill(true)}${ST.az.anagrafica.ateco?"":'<span class="rwarn">⚠ ATECO obbligatorio: determina rischio, ore e modulo DL-RSPP</span>'}</div>
-    ${F("N. addetti","nAddetti","number")}${F("Sede operativa","sede")}
-    <div class="nota">ℹ️ Rischio → variante specifica lavoratori; ATECO → integrativo DL-RSPP; n. addetti → aggiornamento RLS 4h/8h. Le varianti si auto-risolvono quando aggiungi l'incarico (restano modificabili).</div></div>`;
+    ${F("N. addetti","nAddetti","number")}
+    <div class="nota">ℹ️ Rischio → variante specifica lavoratori; ATECO → integrativo DL-RSPP; n. addetti → aggiornamento RLS 4h/8h. Le varianti si auto-risolvono quando aggiungi l'incarico (restano modificabili).</div>${sediBlockHTML(a)}<div style="margin-top:22px;border-top:1px solid #dfe6ef;padding-top:14px"><h3 class="sec" style="margin:0 0 6px">Importa da Elenco Sedi (Excel)</h3><p class="muted" style="font-size:12.5px;margin:0 0 8px">Carica l'elenco sedi (.xlsx). Vengono letti solo: Società, P.IVA, C.F., Sede, N° dipendenti, ATECO. Scegli un'azienda dall'elenco per compilare la scheda corrente.</p><input class="t" type="file" id="sediFile" accept=".xlsx,.xls" style="max-width:340px">${SEDI.length?`<div class="field" style="margin-top:10px"><label class="f">Azienda dall'elenco (${SEDI.length})</label><input class="t" id="sediPick" list="sediList" autocomplete="off" placeholder="cerca ragione sociale o P.IVA…" style="max-width:340px"><datalist id="sediList">${SEDI.map(x=>`<option value="${esc(x._lab)}">`).join("")}</datalist></div><button class="btn btn-p" id="sediApply" style="margin-top:2px">Compila scheda corrente</button>`:""}</div></div>`;
   v.querySelectorAll("[data-k]").forEach(inp=>inp.onchange=()=>{const k=inp.dataset.k;a[k]=inp.value;if(k==="ragioneSociale")rinominaIdx(ST.az.id,inp.value);if(k==="ateco"){const rr=rischioAteco(inp.value);if(rr)a.rischio=rr.livello.charAt(0)+rr.livello.slice(1).toLowerCase();(ST.az.incarichi||[]).forEach(ic=>{if(ic.tipo==="datoreRspp"){if(!ic.varManuale)ic.variante=modIntegrativoAteco(inp.value)||"comune";if(ic.moduli)syncRsppIniziale(ic);}});}saveAz();if(k==="ragioneSociale"||k==="ateco"||k==="rischio")render()});
+  const _sf=$("sediFile");if(_sf)_sf.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const wb=XLSX.read(r.result,{type:"array"});const ws=wb.Sheets[wb.SheetNames[0]];const aoa=XLSX.utils.sheet_to_json(ws,{header:1,raw:true});SEDI=parseSedi(aoa);if(!SEDI.length)throw new Error("nessuna riga riconosciuta");render();}catch(err){alert("Import non riuscito: "+err.message)}};r.readAsArrayBuffer(f)};
+  const _sa=$("sediApply");if(_sa)_sa.onclick=()=>{const lab=($("sediPick").value||"").trim();const sd=SEDI.find(x=>x._lab===lab);if(!sd){alert("Scegli un'azienda dall'elenco.");return}if(a.ragioneSociale&&!confirm("Sovrascrivere l'anagrafica corrente con i dati di «"+sd.ragioneSociale+"»?"))return;applicaSede(sd);};
+  bindSedi(a);
 }
 
+function ensureAnagSedi(a){
+  if(!a.sedeLegale)a.sedeLegale={indirizzo:"",cap:"",citta:"",paese:"Italia"};
+  if(!a.sedeOperativa)a.sedeOperativa={indirizzo:"",cap:"",citta:"",paese:"Italia"};
+  if(a.sedeOpUgualeLegale===undefined)a.sedeOpUgualeLegale=true;
+  if(!Array.isArray(a.sediOperativeExtra))a.sediOperativeExtra=[];
+  if(a.contattoCommerciale===undefined)a.contattoCommerciale="";
+  if(a.referenteInterno===undefined)a.referenteInterno="";
+  if(a.sede&&!a.sedeLegale.indirizzo)a.sedeLegale.indirizzo=a.sede; // ponytail: migrazione one-shot campo piatto
+}
+function _addr(group,o){o=o||{};
+  const f=(fld,ph,w)=>`<input class="t" data-sede="${group}" data-fld="${fld}" placeholder="${ph}" value="${esc(o[fld]||"")}" style="max-width:${w}">`;
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">${f("indirizzo","Indirizzo e n. civico","330px")}${f("cap","CAP","90px")}${f("citta","Città","200px")}${f("paese","Paese","150px")}</div>`;
+}
+function sediBlockHTML(a){
+  const extra=a.sediOperativeExtra||[];
+  return `<div style="margin-top:18px;border-top:1px solid #dfe6ef;padding-top:12px"><h3 class="sec" style="margin:0 0 6px">Sede legale</h3>${_addr("legale",a.sedeLegale)}<label class="toggle" style="margin:2px 0 8px"><input type="checkbox" id="opEqLeg" ${a.sedeOpUgualeLegale?"checked":""}> Sede operativa coincidente con la legale</label>${a.sedeOpUgualeLegale?"":`<h3 class="sec" style="margin:8px 0 6px">Sede operativa</h3>${_addr("operativa",a.sedeOperativa)}`}<div style="display:flex;align-items:center;gap:8px;margin:10px 0 4px"><h3 class="sec" style="margin:0">Altre sedi operative</h3><button class="btn btn-ghost" id="addSede" style="padding:3px 10px;font-size:12px">＋ Aggiungi sede</button></div>${extra.length?extra.map((o,i)=>`<div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1">${_addr("extra:"+i,o)}</div><button class="ico-btn ico-red" data-delsede="${i}" title="Rimuovi" style="margin-top:2px">🗑</button></div>`).join(""):`<div class="muted" style="font-size:12px;margin-bottom:6px">Nessuna sede operativa aggiuntiva.</div>`}<div class="field" style="margin-top:10px"><label class="f">Contatto commerciale d'acquisizione</label><input class="t" data-k="contattoCommerciale" value="${esc(a.contattoCommerciale||"")}" placeholder="Chi ha acquisito il cliente" style="max-width:340px"></div><div class="field"><label class="f">Referente interno</label><input class="t" data-k="referenteInterno" value="${esc(a.referenteInterno||"")}" placeholder="Referente Overall che segue il cliente" style="max-width:340px"></div></div>`;
+}
+function bindSedi(a){
+  document.querySelectorAll("[data-sede]").forEach(inp=>inp.onchange=()=>{
+    const g=inp.dataset.sede,fld=inp.dataset.fld;let o;
+    if(g==="legale")o=a.sedeLegale;else if(g==="operativa")o=a.sedeOperativa;else if(g.startsWith("extra:"))o=a.sediOperativeExtra[+g.slice(6)];
+    if(o){o[fld]=inp.value;saveAz();}
+  });
+  const eq=document.getElementById("opEqLeg");if(eq)eq.onchange=()=>{a.sedeOpUgualeLegale=eq.checked;saveAz();render();};
+  const add=document.getElementById("addSede");if(add)add.onclick=()=>{(a.sediOperativeExtra=a.sediOperativeExtra||[]).push({indirizzo:"",cap:"",citta:"",paese:"Italia"});saveAz();render();};
+  document.querySelectorAll("[data-delsede]").forEach(b=>b.onclick=()=>{a.sediOperativeExtra.splice(+b.dataset.delsede,1);saveAz();render();});
+}
+function parseSedi(aoa){
+  if(!aoa||!aoa.length)return [];
+  const hdr=(aoa[0]||[]).map(h=>String(h==null?"":h).trim().toUpperCase());
+  const col=names=>{for(const n of names){const i=hdr.indexOf(n);if(i>=0)return i;}return -1;};
+  const cSoc=col(["SOCIETÀ","SOCIETA","RAGIONE SOCIALE"]),cSede=col(["SEDE"]),cCf=col(["CODICE FISCALE","C.F.","CF"]),cPiva=col(["PARTITA IVA","P.IVA","PIVA"]),cDip=col(["N° DIPENDENTI","N. DIPENDENTI","N DIPENDENTI","DIPENDENTI"]),cAteco=col(["ATECO"]);
+  const txt=v=>String(v==null?"":v).replace(/\s+/g," ").trim();
+  const divAteco=v=>{const m=txt(v).match(/(\d{1,2})/);return m?m[1]:"";};
+  const out=[];
+  for(let i=1;i<aoa.length;i++){const r=aoa[i]||[];const rs=cSoc>=0?txt(r[cSoc]):"";if(!rs)continue;
+    const piva=cPiva>=0?txt(r[cPiva]):"",cf=cCf>=0?txt(r[cCf]):"";
+    out.push({ragioneSociale:rs,sede:cSede>=0?txt(r[cSede]):"",cf:cf,piva:piva,nAddetti:cDip>=0?txt(r[cDip]):"",ateco:cAteco>=0?divAteco(r[cAteco]):"",_lab:rs+(piva||cf?" — "+(piva||cf):"")});}
+  return out;
+}
+function applicaSede(sd){const a=ST.az.anagrafica;
+  ensureAnagSedi(a);a.ragioneSociale=sd.ragioneSociale;a.piva=sd.piva;a.cf=sd.cf;if(sd.sede)a.sedeLegale.indirizzo=sd.sede;if(sd.nAddetti!=="")a.nAddetti=sd.nAddetti;
+  if(sd.ateco){a.ateco=sd.ateco;const rr=rischioAteco(sd.ateco);if(rr)a.rischio=rr.livello.charAt(0)+rr.livello.slice(1).toLowerCase();
+    (ST.az.incarichi||[]).forEach(ic=>{if(ic.tipo==="datoreRspp"){if(!ic.varManuale)ic.variante=modIntegrativoAteco(sd.ateco)||"comune";if(ic.moduli)syncRsppIniziale(ic);}});}
+  rinominaIdx(ST.az.id,a.ragioneSociale);saveAz();render();
+}
 /* -------- Catalogo & Regole -------- */
 function renderCatalogo(v){
   const regRows=Object.keys(TIPI).map((k,i)=>{const T=TIPI[k];const R=resolve(k);const cur=mesiTipo(k);const ov=ST.reg[k]!==undefined;const fromCat=R.src==="catalogo";
